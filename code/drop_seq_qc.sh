@@ -10,8 +10,6 @@ java -jar /home/project6/tools/picard.jar FastqToSam \
        SM=naive001 \
        RG=naive
 
-
-
 #Step 2: TagBamWithReadSequenceExtended. This code extracts the cell and molecular barcode encoding read and creates a new BAM tag with those bases on the genome read. XM tag for molecular barcodes. XC for cell barcodes. I need to run the program once per barcode extraction to add a tag, first the cell barcode to extract bases 1-12, then run again to extract the molecular barcode fomr bases 13-20 of the barcode read. This second run has an option to drop the barcode read (DISCARD_READ), which makes the output BAM have unpaired reads with additional tags. 
 
 #Step 2a: Cell barcode
@@ -81,3 +79,4 @@ java -Xmx4g -jar /home/project6/tools/picard.jar SamToFastq \
 
 
 #Step 7: Alignment to STAR - Elise
+
