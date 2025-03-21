@@ -79,4 +79,3 @@ java -Xmx4g -jar /home/project6/tools/picard.jar SamToFastq \
 
 
 #Step 7: Alignment to STAR - Elise
-
