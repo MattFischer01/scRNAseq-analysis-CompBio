@@ -2,23 +2,32 @@
 
 #create a genome index for STAR
 #we need to start a new directory to hold the indices
-
 mkdir /home/project6/genome_index
 cd /home/project6/align_quant_output/
 
 #before this: calculate maximum read length in fastq file using read_length.py - in this case, max is 80, so overhang is 79
+#/home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
+#--runThreadN 2 \
+#--runMode genomeGenerate \
+#--genomeDir /home/project6/genome_index_new \
+#--genomeFastaFiles /home/project6/dropseq_metadata/metadata_mouse/GCF_000001635.26_GRCm38.p6_genomic.fna \
+#--sjdbGTFfile /home/project6/dropseq_metadata/metadata_mouse/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+#--sjdbOverhang 79
+
+overhang=$(cat max_read.txt)
+
 /home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
 --runThreadN 2 \
 --runMode genomeGenerate \
 --genomeDir /home/project6/genome_index \
 --genomeFastaFiles /home/project6/dropseq_metadata/mm10/mm10.fasta \
 --sjdbGTFfile /home/project6/dropseq_metadata/mm10/mm10.gtf \
---sjdbOverhang 79
+--sjdbOverhang $overhang
 
 #let's perform an alignment using STAR
 /home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
 --genomeDir /home/project6/genome_index \
---readFilesIn /home/project6/dropseq-qc-output/naive_unaligned_mc_tagged_polyA_filtered.fastq \
+--readFilesIn /home/project6/dropseq-qc-output/sample_data_qc/naive_unaligned_mc_tagged_polyA_filtered.fastq \
 --outFileNamePrefix star
 
 #sort output of alignment in queryname order
@@ -30,7 +39,7 @@ java -Xmx4g -jar /home/project6/tools/picard.jar SortSam \
 #merge alignment BAM with unaligned 
 java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
     REFERENCE_SEQUENCE=/home/project6/dropseq_metadata/mm10/mm10.fasta \
-    UNMAPPED_BAM=/home/project6/dropseq-qc-output/unaligned_mc_tagged_polyA_filtered.bam \
+    UNMAPPED_BAM=/home/project6/dropseq-qc-output/sample_data_qc/naive_unaligned_mc_tagged_polyA_filtered.bam \
     ALIGNED_BAM=aligned.sorted.bam \
     OUTPUT=merged.bam \
     INCLUDE_SECONDARY_ALIGNMENTS=false \
@@ -59,10 +68,22 @@ mkdir bead_errors
     SUMMARY=bead_errors/my.synthesis_stats.summary.txt \
     PRIMER_SEQUENCE=AAGCAGTGGTATCAACGCAGAGTAC
 
+/home/project6/tools/dropseq-3.0.2/BamTagHistogram \
+    I=star_gene_exon_tagged.bam \
+    O=out_cell_readcounts.txt.gz \
+    TAG=XC
+
+gunzip out_cell_readcounts.txt.gz
+
+python3 /home/2025/estagaman/scRNAseq-analysis-CompBio/code/cell_barcodes.py
+
 #use DigitalExpression to get gene expression matrix
 /home/project6/tools/dropseq-3.0.2/DigitalExpression \
     I=star_gene_exon_tagged.bam \
     O=out_gene_exon_tagged.dge.txt.gz \
     SUMMARY=out_gene_exon_tagged.dge.summary.txt \
     NUM_CORE_BARCODES=100 \
-    MIN_NUM_GENES_PER_CELL=500
+    MIN_NUM_GENES_PER_CELL=500 \
+    CELL_BC_FILE=barcodes.txt
+
+gunzip out_gene_exon_tagged.dge.txt.gz
