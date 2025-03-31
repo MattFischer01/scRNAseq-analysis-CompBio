@@ -13,6 +13,13 @@ mv GCF_000001635.26_GRCm38.p6_genomic.fna.gz GCF_000001635.26_GRCm38.p6_genomic.
 wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz
 
 
+##Step1: Extract necessary tools:
+wget https://github.com/broadinstitute/Drop-seq/releases/download/v3.0.2/dropseq-3.0.2.zip
+
+unzip dropseq-3.0.2.zip 
+
+wget https://github.com/broadinstitute/picard/releases/download/3.3.0/picard.jar
+
 #Creation of metadata: CreateSequenceDictionary 
 java -jar /home/project6/tools/picard.jar CreateSequenceDictionary \
     R=/home/project6/dropseq_metadata/metadata_mouse/GCF_000001635.26_GRCm38.p6_genomic.fna.gz \
