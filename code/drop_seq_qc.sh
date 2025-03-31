@@ -2,6 +2,8 @@
 
 #This code will read in a text file and run paired end reads through Drop-seq's qc process.
 
+#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_qc.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt &
+
 #Takes an argument for the path to the text file and assigns it to variable input_file.
 if [[ "$1" == "-i" || "$1" == "--input" ]]; then
     input_file="$2"
@@ -12,7 +14,6 @@ fi
 
 
 while IFS=$'\t' read -r read1 read2 output group number; do
-       (
        qc_output="${output}/${group}/${group}_${number}"
        log_output="${output}/${group}/${group}_${number}/log"
        log_file="${log_output}/${group}_${number}_log.txt"
@@ -127,16 +128,8 @@ while IFS=$'\t' read -r read1 read2 output group number; do
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Completed Picard SamToFastq"
 } >> "$log_file" 2>&1
 
-       ) &
 
+done < "$input_file"
 
-       ((count++))
-       if (( count % 4 == 0 )); then
-              wait  # Wait for 4 jobs to finish before starting new ones
-       fi
-
-done < <(tail -n +2 "$input_file")
-
-wait 
 
 #Step 7: Continue with Star alignment in drop_Seq_p2.sh
