@@ -1,0 +1,3 @@
+../sample_data/naive_01.fastq	../sample_data/naive_02.fastq	../dropseq-qc-output	naive	01
+../sample_data/peak_01.fastq	../sample_data/peak_02.fastq	../dropseq-qc-output	peak	01
+../sample_data/remission_01.fastq	../sample_data/remission_02.fastq	../dropseq-qc-output	remission	01
