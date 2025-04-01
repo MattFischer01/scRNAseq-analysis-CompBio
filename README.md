@@ -35,9 +35,9 @@ The following tools must be downloaded and installed to operate the entire pipel
 
 ## Step 0: Clone the repo and move into it
 
-'git clone https://github.com/MattFischer01/scRNAseq-analysis-CompBio.git'
+`git clone https://github.com/MattFischer01/scRNAseq-analysis-CompBio.git`
 
-'cd scRNAseq-analysis-CompBio'
+`cd scRNAseq-analysis-CompBio`
 
 ## Step 1:
 
@@ -53,15 +53,29 @@ read1 path | read2 path | output path | condition | sample number
 
 Overall, the pipeline reads in the input txt file (reads-to-qc.txt) with that FASTQ paired-end reads obtained from Drop-seq sequencies libraries, where read 1 contains both the cell and molecular barcode that help decide which read is coming from which cell and read 2 contains the sequenced cDNA from the cell. The raw reads are converted to a Picard-qeryname-sorted BAM file using Picard FastqToSam program. The BAM file undergoes the following qc: 
 
-a. Tag cell barcodes (the first 12 bases of read 1) and copy this barcode with tag XC to the genome read.
-b. Tag molecular barcodes (the last 8 bases of read 1), copy this barcode with tag XM to the genome read, then delete read 1.
-c. Filter low quality reads
-d. Trim 5' primer sequence (SMART adapter trimming)
-e. Trim 3' polyA sequence
-f. Converts BAM back to FASTQ for alignment 
+a. **Tag cell barcodes**  
+   - Extract the first 12 bases of Read 1.  
+   - Copy this barcode to the genome read using tag 'XC'.
+
+b. **Tag molecular barcodes**  
+   - Extract the last 8 bases of Read 1.  
+   - Copy this barcode to the genome read using tag 'XM'.  
+   - Delete Read 1 after processing.
+
+c. **Filter low-quality reads**  
+   - Remove reads that do not meet the quality threshold.
+
+d. **Trim 5' primer sequence**  
+   - Perform SMART adapter trimming.
+
+e. **Trim 3' polyA sequence**  
+   - Remove polyA tails to reduce bias in downstream analysis.
+
+f. **Convert BAM back to FASTQ for alignment**  
+   - Extract sequences from BAM and convert them to FASTQ format for alignment.
 
 ### Example command:
-'/path/to/drop_seq_qc.sh -i /path/to/reads-to-qc.txt'
+`/path/to/drop_seq_qc.sh -i /path/to/reads-to-qc.txt`
 
 ### Output:
 Each read pair following qc will be outputted as 1 FASTQ (since with appended the cell and molecular barcode to read 2 and deleted read 1) with the following file name: ${condition}_${sample number}_unaligned_mc_tagged_polyA_filtered.fastq, which will continue in the pipeline to STAR alignment. 
