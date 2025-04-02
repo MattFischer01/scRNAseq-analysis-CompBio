@@ -1,8 +1,10 @@
 # install and load packages
 library(dplyr)
+library(MAST)
 library(Seurat)
 library(patchwork)
 library(future)
+
 
 #### read in data and make seurat object ####
 setwd('/home/2025/hjensen2/scRNAseq-analysis-CompBio/GEO')
@@ -114,6 +116,8 @@ mice.combined <- IntegrateData(anchorset = anchors)
 
 # saving everything from previous analysis because it will take forever to run everything if envs is lost
 save(anchors, dge_list, mice.combined, file = "seurat_post_int.RData")
+load("seurat_post_int.RData")
+
 
 # specify that the new assay is integrated instead of RNA so we are working at higher level
 DefaultAssay(mice.combined) <- "integrated"
@@ -136,7 +140,8 @@ ElbowPlot(mice.combined)
 # shoot for something btwn 15 and 20?
 
 #saving post pca
-save(anchors, dge_list, mice.combined, file = "post_pca_seurat_geo_data.RData")
+save(anchors, dge_list, mice.combined, file = "post_pca_seurat_metadata.RData")
+load("post_pca_seurat_metadata.RData")
 
 # run tsne based on first 15 PCs
 mice.combined <- RunTSNE(mice.combined, reduction = "pca", dims = 1:15)
@@ -145,12 +150,62 @@ mice.combined <- RunTSNE(mice.combined, reduction = "pca", dims = 1:15)
 mice.combined <- FindNeighbors(mice.combined, reduction = "pca", dims = 1:15)
 
 # find clusters, can play with resolution depending on how our results look
-mice.combined <- FindClusters(mice.combined, resolution = 0.5)
+mice.combined <- FindClusters(mice.combined, resolution = 0.5) # the paper used 0.5
 
-# visualization
-p1 <- DimPlot(mice.combined, reduction = "tsne", label = TRUE, repel = TRUE)
-p1
+# visualization, this looks at only the mice with EAE in the condition name
+p1 <- DimPlot(subset(mice.combined, subset = condition %in% c("EAE", "EAE priming", "EAE remission")), 
+              reduction = "tsne", label = TRUE, repel = TRUE)
+# this plot groups by condition
+p2 <- DimPlot(mice.combined, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "condition")
+# this plot is all of the samples
+p3 <- DimPlot(mice.combined, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "seurat_clusters")
+
+p1|p2|p3 # plot all of them side by side
+
+save(dge_list, anchors, mice.combined, file = "post_clusters_metadata.RData")
+
+#### MAST ####
+
+# need to find a tutorial on how to do DE analysis for each cluster compared to all other cells
+# looks like in the FindMarkers() function, there is a test.use parameter that we can do MAST
+
+# set the active identity of object to the clusters
+Idents(mice.combined) <- "seurat_clusters"
+
+# set default assay to "RNA"
+DefaultAssay(mice.combined) <- "RNA"
+
+# join layers, find markers wont run without doing this and it suggested it
+mice.combined_joined <- JoinLayers(mice.combined)
 
 
+# make a list to store the DE results for each cluster
+mast_results <- list()
+
+# this takes awhile, so save rdata after this step
+# for each cluster, compare it to all other cells and return DE results to mast_results 
+for (cluster in levels(Idents(mice.combined_joined))) {
+  mast_results[[cluster]] <- FindMarkers(mice.combined_joined,
+                                         ident.1 = cluster, # comparing current cluster to all other cells 
+                                         test.use = "MAST", # MAST algorithm
+                                         min.pct = 0.25,  # only test genes expressed in at least 25% of cells in a cluster
+                                         logfc.threshold = 0.25) # limits testing on genes, speeds up process (defualt is 0.1)
+}
+
+
+# save mast_results
+save(dge_list, mice.combined, mice.combined_joined, mast_results, file = "mast_results.RData")
+
+# look at top DE genes for a specific cluster
+head(mast_results[["0"]]) # replace 0 with cluster of interest
+head(mast_results[["1"]])
+# we will need to somehow compare markers to cell type, not sure how we will do this in our pipeline
+
+# feature plots from the paper, they look diff but the cluster coloring and # of clusters colored is similar
+FeaturePlot(mice.combined, c('S100b'))
+FeaturePlot(mice.combined, c('Gja1'))
+FeaturePlot(mice.combined, c('Aldh1l1'))
+FeaturePlot(mice.combined, c('Gfap')) # this had some cells removed bc it didnt have this feature
+FeaturePlot(mice.combined, c('Aqp4'))
 
 
