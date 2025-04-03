@@ -12,7 +12,6 @@ else
     exit 1
 fi
 
-
 while IFS=$'\t' read -r read1 read2 output group number; do
        qc_output="${output}/${group}/${group}_${number}"
        log_output="${output}/${group}/${group}_${number}/log"
@@ -21,7 +20,6 @@ while IFS=$'\t' read -r read1 read2 output group number; do
        mkdir -p "$qc_output" "$log_output"
 
        echo "Processing: $read1 and $read2 > QC output: $qc_output, Logs: $log_output"
-
 
 #Step 1: I need to convert the fastq files into a Picard-queryname-sorted BAM file. I will use Picard FastqToSam:
 #https://broadinstitute.github.io/picard/command-line-overview.html#FastqToSam
