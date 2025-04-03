@@ -1,3 +1,6 @@
+#add argparse and call this from drop_seq_p2.sh
+#for now: not performing it bc we already have a pre-made index
+
 from Bio import SeqIO
 
 fasta_file = "/home/project6/dropseq-qc-output/sample_data_qc/naive_unaligned_mc_tagged_polyA_filtered.fastq"  # Replace with your FASTA file

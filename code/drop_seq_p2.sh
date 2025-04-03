@@ -27,34 +27,25 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 #create a genome index for STAR
 #we need to start a new directory to hold the indices
 
-overhang = $(cat max_read.txt)
+#overhang = $(cat max_read.txt)
 
-if ! test -d "genome_index"; then
+if ! test -d "home/project6/genome_index"; then
   mkdir genome_index
 
   /home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
   --runThreadN 2 \
   --runMode genomeGenerate \
   --genomeDir genome_index \
-  --genomeFastaFiles /home/project6/metadata/GCF_000001635.26_GRCm38.p6_genomic.fna \
-  --sjdbGTFfile /home/project6/metadata/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+  --genomeFastaFiles sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna \
+  --sjdbGTFfile sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
   --sjdbOverhang $overhang
 fi
 
 cd $output_dir
 
-#before this: calculate maximum read length in fastq file using read_length.py - in this case, max is 80, so overhang is 79
-#/home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
-#--runThreadN 2 \
-#--runMode genomeGenerate \
-#--genomeDir /home/project6/genome_index_new \
-#--genomeFastaFiles /home/project6/dropseq_metadata/metadata_mouse/GCF_000001635.26_GRCm38.p6_genomic.fna \
-#--sjdbGTFfile /home/project6/dropseq_metadata/metadata_mouse/GCF_000001635.26_GRCm38.p6_genomic.gtf \
-#--sjdbOverhang 79
-
 #let's perform an alignment using STAR
 /home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
---genomeDir genome_index \
+--genomeDir home/project6/genome_index \
 --readFilesIn "$qc_output/${group}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq" \
 --outFileNamePrefix star
 
@@ -66,7 +57,7 @@ java -Xmx4g -jar /home/project6/tools/picard.jar SortSam \
 
 #merge alignment BAM with unaligned 
 java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
-    REFERENCE_SEQUENCE=/home/project6/metadata/GCF_000001635.26_GRCm38.p6_genomic.fna \
+    REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna \
     UNMAPPED_BAM="$qc_output/${group}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam" \
     ALIGNED_BAM="${group}/${group}_${number}_aligned.sorted.bam" \
     OUTPUT="${group}/${group}_${number}_merged.bam" \
@@ -77,7 +68,7 @@ java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
 /home/project6/tools/dropseq-3.0.2/TagReadWithGeneFunction \
     I="${group}/${group}_${number}_merged.bam" \
     O="${group}/${group}_${number}_star_gene_exon_tagged.bam" \
-    ANNOTATIONS_FILE=/home/project6/metadata/GCF_000001635.26_GRCm38.p6_genomic.gtf
+    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf
 
 mkdir bead_errors
 
@@ -103,7 +94,7 @@ mkdir bead_errors
 
 gunzip "${group}/${group}_${number}_out_cell_readcounts.txt.gz"
 
-python3 /home/2025/estagaman/scRNAseq-analysis-CompBio/code/cell_barcodes.py -i "${group}/${group}_${number}_out_cell_readcounts.txt.gz" -o  "${group}/${group}_${number}"
+python3 ../code/cell_barcodes.py -i "${group}/${group}_${number}_out_cell_readcounts.txt.gz" -o  "${group}/${group}_${number}"
 
 #use DigitalExpression to get gene expression matrix
 /home/project6/tools/dropseq-3.0.2/DigitalExpression \
