@@ -29,7 +29,12 @@ The following tools must be downloaded and installed to operate the entire pipel
 6. STAR: https://github.com/alexdobin/STAR 
 7. Seurat - R Package: https://cran.r-project.org/web/packages/Seurat/index.html. This can be downloaded in R using ```install.packages("Seurat")```
 8. MAST: https://github.com/RGLab/MAST. This can also be downloaded as an R package using ```install.packages("MAST")```
-9. Other R packages needed: dplyr and patchwork, which can be downloaded in R using ```install.packages("[package name]")```
+9. Other R packages needed: dplyr, patchwork, SingleR, and celldex, which can be downloaded in R using ```install.packages("[package name]")```
+
+Streamline R Package Installation:
+```
+install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR"))
+```
 
 
 # Pipeline in Detail:
