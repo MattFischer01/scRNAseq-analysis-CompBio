@@ -4,6 +4,8 @@ library(MAST)
 library(Seurat)
 library(patchwork)
 library(future)
+library(celldex)
+library(SingleR)
 
 
 #### read in data and make seurat object ####
@@ -208,4 +210,124 @@ FeaturePlot(mice.combined, c('Aldh1l1'))
 FeaturePlot(mice.combined, c('Gfap')) # this had some cells removed bc it didnt have this feature
 FeaturePlot(mice.combined, c('Aqp4'))
 
+
+#### getting reference for cell type annotation ####
+
+ref <- celldex::MouseRNAseqData() # hopefully this reference is good
+View(as.data.frame(colData(ref))) # viewing it to make sure if has cells we are interested in
+unique(ref$label.fine) 
+# the fine level labels are not exact matches to the legend in the paper, so may need to do some manual labeling
+
+# default for SingleR is to perform annotation of each individual cell in the test dataset
+# getting cells, need to use the joined layer object since getassaydata() doesnt work on multiple layers
+mice_counts <- GetAssayData(mice.combined_joined, layer = "counts")
+
+# run the SingleR function to get cell annotations from reference
+pred <- SingleR(test = mice_counts,
+                ref = ref,
+                labels = ref$label.fine) # using fine to get more info rather than less
+
+pred2 <- SingleR(test = mice_counts,
+                ref = ref,
+                labels = ref$label.main) # get main labels as well
+
+# view results
+pred
+
+# add labels to joined layers seurat object
+mice.combined_joined$singleR.labels <- pred$labels[match(rownames(mice.combined_joined@meta.data), rownames(pred))]
+mice.combined_joined$singleR.main_labels <- pred2$labels[match(rownames(mice.combined_joined@meta.data), rownames(pred2))]
+
+# visualize
+DimPlot(mice.combined_joined, reduction = "tsne", group.by = "singleR.labels") +
+  theme(
+    legend.text = element_text(size = 6),       # shrink legend label text
+    legend.key.size = unit(0.3, "cm")           # shrink legend box size
+  )
+
+DimPlot(mice.combined_joined, reduction = "tsne", group.by = "singleR.main_labels") +
+  theme(
+    legend.text = element_text(size = 6),       # shrink legend label text
+    legend.key.size = unit(0.3, "cm")           # shrink legend box size
+  )
+
+# only plot the EAE mice
+DimPlot(subset(mice.combined_joined, subset = condition %in% c("EAE", "EAE priming", "EAE remission")), 
+              reduction = "tsne", group.by = "singleR.main_labels", label = TRUE, repel = TRUE) +
+  ggtitle("EAE Mice Clusters Colored by Cell Type")
+
+# subset data to astrocytes only for fig d
+
+astrocytes_data <- subset(mice.combined_joined, subset = singleR.main_labels == "Astrocytes")
+
+# since pca and tsne have already been run on the full dataset, dont need to do it again since Seurat stores this
+# plotting just astrocytes clusters
+astrocyte_tsne_plot <- DimPlot(astrocytes_data, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "seurat_clusters") +
+  ggtitle("tSNE Plot of Astrocytes") 
+astrocyte_tsne_plot
+# clusters of astrocytes in cluster 8, 14, and 13
+# the results dont look like the paper, so going to redo everything
+
+# redo pca, tsne, and re-clustering astrocytes to see if this is what the paper did
+astrocytes_data <- RunPCA(astrocytes_data, features = VariableFeatures(object = astrocytes_data))
+astrocytes_data <- RunTSNE(astrocytes_data, reduction = "pca", dims = 1:15)
+astrocytes_data <- FindNeighbors(astrocytes_data, reduction = "pca", dims = 1:15)  # use the same number of PCA dimensions
+astrocytes_data <- FindClusters(astrocytes_data, resolution = 1) # higher resolution to get more clusters
+DimPlot(astrocytes_data, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "seurat_clusters")
+# this looks more like the paper, but i found less clusters (4 vs 8)
+# so not entirely sure how they get that plot d, we will need to explore this further
+# when i increased resolution, i got more clusters: 7 now
+# i think cluster 9 is their cluster 4, but unsure
+
+# check astrocyte markers across all clusters (these genes are common markers)
+# Gfap, S100b, Aldh1l1
+Idents(mice.combined) <- "seurat_clusters"
+
+FeaturePlot(mice.combined, features = c("Gfap", "Aldh1l1", "S100b"), label = TRUE)
+# clusters = 8, 14, 5, 19, 20
+# comparing to astrocyte subset from reference labels
+astrocyte_tsne_plot <- DimPlot(astrocytes_data, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "seurat_clusters") +
+  ggtitle("tSNE Plot of Astrocytes") 
+astrocyte_tsne_plot
+# only get 4 clusters, not 5 (seems like the reference doesnt map to cluster 5)
+
+
+#### EAE phasse composition graph ####
+
+metadata <- astrocytes_data@meta.data # getting metadata
+head(metadata)
+
+# group by 'seurat_clusters' and 'condition', then count occurrences
+cluster_composition <- metadata |>
+  dplyr::filter(condition != "EAE") |>
+  dplyr::filter(condition != "CFA") |> # exclude EAE and CFA condition since it will dominate (not true labels)
+  dplyr::group_by(seurat_clusters, condition) |> 
+  tally() |>  # count occurrences of each condition in each cluster
+  ungroup()
+
+# calculate the percentage composition for each condition per cluster
+cluster_composition <- cluster_composition |>
+  dplyr::group_by(seurat_clusters) |>  # group by clusters
+  dplyr::mutate(percentage = n / sum(n) * 100) |>  # calculate percentage
+  ungroup()
+head(cluster_composition)
+
+# Create the stacked bar plot
+ggplot(cluster_composition, aes(x = factor(seurat_clusters), y = percentage, fill = condition)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Cluster", y = "Percentage Composition", fill = "Condition (EAE Phase)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels if needed
+# i am confused why their bar graph looks so different, where are they getting such low percents?
+# based on their definition of expanded, cluster 3 is
+
+cluster_composition_EAE <- cluster_composition |> 
+  dplyr::filter(condition %in% c("EAE peak", "EAE priming", "EAE remission"))
+  
+expanded_cluster <- cluster_composition_EAE |> 
+  dplyr::arrange(desc(percentage)) |> # arrange clusters by highest to lowest comp
+  dplyr::slice(1) # get the most expanded cluster
+expanded_cluster
+# cluster 3 if looking at EAE priming
+# cluster 2 if looking at EAE peak
 
