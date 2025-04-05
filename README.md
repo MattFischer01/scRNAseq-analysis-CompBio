@@ -27,8 +27,14 @@ The following tools must be downloaded and installed to operate the entire pipel
 4. Drop-Seq: https://github.com/broadinstitute/Drop-seq 
 5. Picard: https://github.com/broadinstitute/picard 
 6. STAR: https://github.com/alexdobin/STAR 
-7. Seurat - R Package: https://cran.r-project.org/web/packages/Seurat/index.html 
-8. MAST: https://github.com/RGLab/MAST 
+7. Seurat - R Package: https://cran.r-project.org/web/packages/Seurat/index.html. This can be downloaded in R using ```install.packages("Seurat")```
+8. MAST: https://github.com/RGLab/MAST. This can also be downloaded as an R package using ```install.packages("MAST")```
+9. Other R packages needed: dplyr, patchwork, SingleR, and celldex, which can be downloaded in R using ```install.packages("[package name]")```
+
+Streamline R Package Installation:
+```
+install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR"))
+```
 
 
 # Pipeline in Detail:
@@ -39,7 +45,12 @@ The following tools must be downloaded and installed to operate the entire pipel
 
 `cd scRNAseq-analysis-CompBio`
 
-## Step 1:
+
+## Step 1: Fetch FASTQ Files
+
+If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference.
+
+This step fetches the SRA files using fasterq-dump and then gzips them to save space. The files will be saved in a directory titled scRNA_SRA. This step may take awhile depending on number of FASTQ files downloaded and size of each file. 
 
 
 ## Step 2: DropSeq - QC
