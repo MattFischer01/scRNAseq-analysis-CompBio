@@ -23,8 +23,8 @@ while IFS=$'\t' read -r read1 read2 output group number; do
     log_output="${output_dir}/${group}/${group}_${number}/log"
     log_file="${output_dir}/${group}_${number}_log.txt"
     read_in="../$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq"
-    read_bam="$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam"
-    out_loc="${group}/${group}_${number}"
+    read_bam="../$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam"
+    out_loc="${group}/${group}_${number}/${group}_${number}"
     group_num="${group}_${number}"
 
     mkdir -p "$align_output" "$log_output"
@@ -53,9 +53,9 @@ cd $output_dir
 
 #let's perform an alignment using STAR
 /home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
---genomeDir /home/project6/genome_index_new \
+--genomeDir /home/project6/genome_index \
 --readFilesIn $read_in \
---outFileNamePrefix star
+--outFileNamePrefix "${out_loc}_star"
 
 #sort output of alignment in queryname order
 java -Xmx4g -jar /home/project6/tools/picard.jar SortSam \
@@ -63,9 +63,13 @@ java -Xmx4g -jar /home/project6/tools/picard.jar SortSam \
     O="${out_loc}_aligned.sorted.bam" \
     SO=queryname
 
+java -jar /home/project6/tools/picard.jar CreateSequenceDictionary \
+    R=../../sample_data/mm10.fasta \
+    O=../../sample_data/mm10.dict
+
 #merge alignment BAM with unaligned 
 java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
-    REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna \
+    REFERENCE_SEQUENCE=../../sample_data/mm10.fasta \
     UNMAPPED_BAM=$read_bam \
     ALIGNED_BAM="${out_loc}_aligned.sorted.bam" \
     OUTPUT="${out_loc}_merged.bam" \
@@ -76,7 +80,7 @@ java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
 /home/project6/tools/dropseq-3.0.2/TagReadWithGeneFunction \
     I="${out_loc}_merged.bam" \
     O="${out_loc}_star_gene_exon_tagged.bam" \
-    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf
+    ANNOTATIONS_FILE=../../sample_data/mm10.gtf
 
 mkdir bead_errors
 
@@ -101,7 +105,9 @@ mkdir bead_errors
 
 gunzip "${out_loc}_out_cell_readcounts.txt.gz"
 
-python3 ../code/cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt.gz" -o  "${out_loc}"
+wd=$(pwd)
+
+python3 ../cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt" -o  "${wd}/${out_loc}"
 
 #use DigitalExpression to get gene expression matrix
 /home/project6/tools/dropseq-3.0.2/DigitalExpression \
@@ -113,3 +119,4 @@ python3 ../code/cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt.gz" -o  
     CELL_BC_FILE="${out_loc}_barcodes.txt"
 
 gunzip "${out_loc}_out_gene_exon_tagged.dge.txt.gz"
+
