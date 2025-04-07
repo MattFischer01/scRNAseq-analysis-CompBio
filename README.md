@@ -130,3 +130,23 @@ The code will create an output directory with the name you specify. In our wrapp
 
 ### Output:
 Each FASTQ from the QC step will output one gene expression matrix with the following file name: ${condition}_${sample number}_out_gene_exon_tagged.dge.txt, which can be used as input for Seurat and MAST
+
+
+# Running the Test Data:
+
+As previously mentioned, the first step is to clone our repo, then cd into it. 
+
+`git clone https://github.com/MattFischer01/scRNAseq-analysis-CompBio.git`
+
+`cd scRNAseq-analysis-CompBio`
+
+
+Then, cd into the "code" directory.
+
+`cd code`
+
+Once you are in the code directory, run this command: 
+
+`python3 test_wrapper.py -m sampledata-to-qc.txt`
+
+The -m parameter allows you to specify the path to your metadata containing paired-end fastq files and the associated condition and sample group
