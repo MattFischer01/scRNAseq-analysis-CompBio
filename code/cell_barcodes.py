@@ -1,4 +1,5 @@
 import argparse
+import sys
 #function to parse command line arguments
 def check_arg(args=None):
     parser = argparse.ArgumentParser(description="cell_barcodes.py") #specify the name of the script
@@ -17,7 +18,7 @@ outfile = arguments.output #load fastq directory
 
 import pandas as pd
 
-barcodes = pd.read_csv("out_cell_readcounts.txt", sep='\t', skiprows=1, header=None, names=['count', 'barcode'])
+barcodes = pd.read_csv(infile, sep='\t', skiprows=1, header=None, names=['count', 'barcode'])
 
 barcodes = barcodes.drop('count', axis=1)
 
