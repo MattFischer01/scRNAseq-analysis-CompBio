@@ -24,7 +24,7 @@ os.system(drop_seq_qc_command)
 #os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna.gz")
 #os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz")
 
-star_quant_command = "./drop_seq_mm10.sh -i " + sample_meta + " -o align_quant_output_test_mm10"
+star_quant_command = "./drop_seq_mm10.sh -i " + sample_meta + " -o align_quant_output"
 
 os.system(star_quant_command)
 
