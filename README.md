@@ -90,3 +90,43 @@ f. **Convert BAM back to FASTQ for alignment**
 
 ### Output:
 Each read pair following qc will be outputted as 1 FASTQ (since with appended the cell and molecular barcode to read 2 and deleted read 1) with the following file name: ${condition}_${sample number}_unaligned_mc_tagged_polyA_filtered.fastq, which will continue in the pipeline to STAR alignment. 
+
+## Step 3: STAR - alignment 
+
+a. **create a genome index**
+   - depending on your organism, you will fetch a reference genome (.fasta) and genomic features file (.gtf) from NCBI for that organism
+   - this step alone can take 1-2 hours
+         - in this case, we pre-downloaded reference files for the mouse genome, and pre-generated an index for faster processing
+b. **align fastq from QC step to your genome index**
+
+## Step 4: DropSeq - Quantification
+
+a. **Sort alignment output**
+   - ensures alignments from the same read stay together in the BAM file
+
+b. **Merge BAM files**
+	- Match the aligned BAM output from STAR to the barcodes in the original BAM file 
+	- Ensures all our reads are still tagged appropriately
+
+c. **Tag genes in each read**
+	- Uses a .gtf file of genomic features (provided) to tag any reads that overlap with a gene exon or intron
+	- Reads are tagged with the gene name, gene strand, and gene function
+	
+d. **Look for errors in cell barcode sequences**
+	- Sometimes, substitutions occur in barcode sequences by chance, which makes it hard to trace reads back to the right cells
+	- This step in the processes combines barcodes that appear due to error with results from the intended barcode
+
+e. **Calculate the number of reads per cell**
+	- Outputs a file out_cell_readcounts.txt, which serves as input for the next step
+	
+f. **Create Digital Expression Matrix**
+	- Settings: min_num_genes_per_cell = 500, num_core_barcodes=100
+	- Generates a gene expression count matrix, which can serve as input for Seurat downstream analysis
+
+### Example command:
+`/path/to/drop_seq_p2.sh -i /path/to/reads-to-qc.txt -o output_directory_name`
+
+The code will create an output directory with the name you specify. In our wrapper script, this directory is called align_quant_output
+
+### Output:
+Each FASTQ from the QC step will output one gene expression matrix with the following file name: ${condition}_${sample number}_out_gene_exon_tagged.dge.txt, which can be used as input for Seurat and MAST
