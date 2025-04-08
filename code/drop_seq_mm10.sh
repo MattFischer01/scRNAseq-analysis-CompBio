@@ -1,60 +1,59 @@
 #!/bin/bash
 
 #download STAR to /home/project6/tools (tools folder)
-#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_p2.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt  -o align-quant-output &
+#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_p2.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt  -o align-quant-output -t /home/project6/tools_all &
 
-if [[ "$1" == "-i" || "$1" == "--input" ]]; then
+if [[ "$1" == "-i" || "$1" == "--input" ]]; then #take in sample metadata file as input_file
     input_file="$2"
 else
     echo "Unknown parameter passed: $1"
     exit 1
 fi
 
-if [[ "$3" == "-o" || "$3" == "--output" ]]; then
+if [[ "$3" == "-o" || "$3" == "--output" ]]; then #take in output directory name as output_dir
     output_dir="$4"
 else
     echo "Unknown parameter passed: $3"
     exit 1
 fi
 
-if [[ "$5" == "-t" || "$3" == "--tools" ]]; then
+if [[ "$5" == "-t" || "$3" == "--tools" ]]; then #take in tools directory as tools_dir
     tools_dir="$6"
 else
-    echo "Unknown parameter passed: $3"
+    echo "Unknown parameter passed: $6"
     exit 1
 fi
 
-STAR=$(find ${tools_dir} -maxdepth 1 -name "*STAR*" -exec basename {} \;)
-DropSeq=$(find ${tools_dir} -maxdepth 1 -name "*dropseq*" -exec basename {} \;)
-Picard=$(find ${tools_dir} -maxdepth 1 -name "*picard*" -exec basename {} \;)
+STAR=$(find ${tools_dir} -maxdepth 1 -name "*STAR*" -exec basename {} \;) #search in tools_dir for name containing STAR
+DropSeq=$(find ${tools_dir} -maxdepth 1 -name "*dropseq*" -exec basename {} \;) #search in tools_dir for name containing dropseq
+Picard=$(find ${tools_dir} -maxdepth 1 -name "*picard*" -exec basename {} \;) #search in tools_dir for name containing picard
 
-STAR_path="${tools_dir}/${STAR}/bin/Linux_x86_64/STAR"
-DropSeq_path="${tools_dir}/${DropSeq}"
-Picard_path="${tools_dir}/${Picard}"
+STAR_path="${tools_dir}/${STAR}/bin/Linux_x86_64/STAR" #construct full STAR path
+DropSeq_path="${tools_dir}/${DropSeq}" #construct full DropSeq path
+Picard_path="${tools_dir}/${Picard}" #construct full Picard path
 
 while IFS=$'\t' read -r read1 read2 output group number; do
-    qc_output="${output}/${group}/${group}_${number}"
-    align_out_folder="../${output_dir}/${group}/${group}_${number}"
-    log_output="../${output_dir}/${group}/${group}_${number}/log"
-    log_file="../${output_dir}/${group}_${number}_log.txt"
-    read_in="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq"
-    read_bam="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam"
-    out_loc="${align_out_folder}/${group}_${number}"
-    group_num="${group}_${number}"
+    qc_output="${output}/${group}/${group}_${number}" #location to pull QC results from
+    align_out_folder="../${output_dir}/${group}/${group}_${number}" #folder to put Align-Quant results
+    log_output="../${output_dir}/${group}/${group}_${number}/log" #log directory
+    log_file="../${output_dir}/${group}_${number}_log.txt" #log file name
+    read_in="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq" #file from QC to read into STAR
+    read_bam="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam" #file from QC to read into SortSam
+    out_loc="${align_out_folder}/${group}_${number}" #output location including prefix
+    group_num="${group}_${number}" #just prefix
 
-    mkdir -p "${align_out_folder}" "$log_output"
+    mkdir -p "${align_out_folder}" "$log_output" #make the align-quant output directory and log directory
 
     echo "Processing: $read1 and $read2 > alignment output: $align_output, Logs: $log_output"
 
-#create a genome index for STAR
-#we need to start a new directory to hold the indices
+#####This code generates a genome index. It takes 1-2 hours, so I have commented it out for now########
 
 #overhang = $(cat max_read.txt)
 
 #if ! test -d "home/project6/genome_index"; then
   #mkdir genome_index
 
-  #/home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
+  #$STAR_path \
   #--runThreadN 2 \
   #--runMode genomeGenerate \
   #--genomeDir genome_index \
@@ -63,7 +62,8 @@ while IFS=$'\t' read -r read1 read2 output group number; do
   #--sjdbOverhang 79
 #fi
 
-#let's perform an alignment using STAR
+#let's perform an alignment using STAR: 
+    #note: index is hard-coded for now, but the user should either supply the location to this as input or have the code generate it
 $STAR_path \
 --genomeDir /home/project6/genome_index \
 --readFilesIn $read_in \
@@ -75,9 +75,10 @@ java -Xmx4g -jar $Picard_path SortSam \
     O="${out_loc}_aligned.sorted.bam" \
     SO=queryname
 
+#####creating metadata from the mouse reference files which can be used later
 java -jar $Picard_path CreateSequenceDictionary \
     R=../sample_data/mm10/mm10.fasta \
-    O=../sample_data/mm10/mm10.dict
+    O=../sample_data/mm10/mm10.dict \
 
 #merge alignment BAM with unaligned
 java -Xmx4g -jar $Picard_path MergeBamAlignment \

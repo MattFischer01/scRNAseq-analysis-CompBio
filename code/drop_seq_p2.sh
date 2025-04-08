@@ -1,46 +1,59 @@
 #!/bin/bash
 
 #download STAR to /home/project6/tools (tools folder)
-#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_p2.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt  -o align-quant-output &
+#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_p2.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt  -o align-quant-output -t /home/project6/tools_all &
 
-if [[ "$1" == "-i" || "$1" == "--input" ]]; then
+if [[ "$1" == "-i" || "$1" == "--input" ]]; then #take in sample metadata file as input_file
     input_file="$2"
 else
     echo "Unknown parameter passed: $1"
     exit 1
 fi
 
-if [[ "$3" == "-o" || "$3" == "--output" ]]; then
+if [[ "$3" == "-o" || "$3" == "--output" ]]; then #take in output directory name as output_dir
     output_dir="$4"
 else
     echo "Unknown parameter passed: $3"
     exit 1
 fi
 
-while IFS=$'\t' read -r read1 read2 output group number; do
-    qc_output="${output}/${group}/${group}_${number}"
-    align_output="${output_dir}/${group}/${group}_${number}"
-    log_output="${output_dir}/${group}/${group}_${number}/log"
-    log_file="${output_dir}/${group}_${number}_log.txt"
-    read_in="../$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq"
-    read_bam="$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam"
-    out_loc="${group}/${group}_${number}"
-    group_num="${group}_${number}"
+if [[ "$5" == "-t" || "$3" == "--tools" ]]; then #take in tools directory as tools_dir
+    tools_dir="$6"
+else
+    echo "Unknown parameter passed: $6"
+    exit 1
+fi
 
-    mkdir -p "$align_output" "$log_output"
+STAR=$(find ${tools_dir} -maxdepth 1 -name "*STAR*" -exec basename {} \;) #search in tools_dir for name containing STAR
+DropSeq=$(find ${tools_dir} -maxdepth 1 -name "*dropseq*" -exec basename {} \;) #search in tools_dir for name containing dropseq
+Picard=$(find ${tools_dir} -maxdepth 1 -name "*picard*" -exec basename {} \;) #search in tools_dir for name containing picard
+
+STAR_path="${tools_dir}/${STAR}/bin/Linux_x86_64/STAR" #construct full STAR path
+DropSeq_path="${tools_dir}/${DropSeq}" #construct full DropSeq path
+Picard_path="${tools_dir}/${Picard}" #construct full Picard path
+
+while IFS=$'\t' read -r read1 read2 output group number; do
+    qc_output="${output}/${group}/${group}_${number}" #location to pull QC results from
+    align_out_folder="../${output_dir}/${group}/${group}_${number}" #folder to put Align-Quant results
+    log_output="../${output_dir}/${group}/${group}_${number}/log" #log directory
+    log_file="../${output_dir}/${group}_${number}_log.txt" #log file name
+    read_in="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq" #file from QC to read into STAR
+    read_bam="${qc_output}/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam" #file from QC to read into SortSam
+    out_loc="${align_out_folder}/${group}_${number}" #output location including prefix
+    group_num="${group}_${number}" #just prefix
+
+    mkdir -p "${align_out_folder}" "$log_output" #make the align-quant output directory and log directory
 
     echo "Processing: $read1 and $read2 > alignment output: $align_output, Logs: $log_output"
-done < "$input_file"
 
-#create a genome index for STAR
-#we need to start a new directory to hold the indices
+#####This code generates a genome index. It takes 1-2 hours, so I have commented it out for now########
 
 #overhang = $(cat max_read.txt)
 
 #if ! test -d "home/project6/genome_index"; then
   #mkdir genome_index
 
-  #/home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
+  #$STAR_path \
   #--runThreadN 2 \
   #--runMode genomeGenerate \
   #--genomeDir genome_index \
@@ -49,23 +62,37 @@ done < "$input_file"
   #--sjdbOverhang 79
 #fi
 
-cd $output_dir
-
-#let's perform an alignment using STAR
-/home/project6/STAR/STAR-2.7.11b/bin/Linux_x86_64/STAR \
---genomeDir /home/project6/genome_index_new \
+#let's perform an alignment using STAR: 
+    #note: index is hard-coded for now, but the user should either supply the location to this as input or have the code generate it
+$STAR_path \
+--genomeDir /home/project6/genome_index \
 --readFilesIn $read_in \
---outFileNamePrefix star
+--outFileNamePrefix "${out_loc}_star"
 
 #sort output of alignment in queryname order
-java -Xmx4g -jar /home/project6/tools/picard.jar SortSam \
+java -Xmx4g -jar $Picard_path SortSam \
     I="${out_loc}_starAligned.out.sam" \
     O="${out_loc}_aligned.sorted.bam" \
     SO=queryname
 
-#merge alignment BAM with unaligned 
-java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
-    REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna \
+#####creating metadata from the mouse reference files which can be used later
+java -jar $Picard_path CreateSequenceDictionary \
+    R=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
+    O=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
+
+java -jar $Picard_path ConvertToRefFlat \
+    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+    SEQUENCE_DICTIONARY=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
+    OUTPUT=my.refFlat
+
+java -jar $Picard_path ReduceGTF \
+    SEQUENCE_DICTIONARY=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
+    GTF=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+    OUTPUT=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.reduced.gtf
+
+#merge alignment BAM with unaligned
+java -Xmx4g -jar $Picard_path MergeBamAlignment \
+    REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
     UNMAPPED_BAM=$read_bam \
     ALIGNED_BAM="${out_loc}_aligned.sorted.bam" \
     OUTPUT="${out_loc}_merged.bam" \
@@ -73,38 +100,40 @@ java -Xmx4g -jar /home/project6/tools/picard.jar MergeBamAlignment \
     PAIRED_RUN=false
 
 #newer function: tags overlaps with exons and introns - better mapping of exon-exon junctions
-/home/project6/tools/dropseq-3.0.2/TagReadWithGeneFunction \
+"${DropSeq_path}/TagReadWithGeneFunction" \
     I="${out_loc}_merged.bam" \
     O="${out_loc}_star_gene_exon_tagged.bam" \
     ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf
 
-mkdir bead_errors
+mkdir "${align_out_folder}/bead_errors"
 
 #detect bead synthesis errors
-/home/project6/tools/dropseq-3.0.2/DetectBeadSubstitutionErrors \
+"${DropSeq_path}/DetectBeadSubstitutionErrors" \
     I="${out_loc}_star_gene_exon_tagged.bam" \
-    O="bead_errors/${group_num}_my_clean_subtitution.bam" \
-    OUTPUT_REPORT="bead_errors/${group_num}_my_clean.substitution_report.txt"
+    O="${align_out_folder}/bead_errors/${group_num}_my_clean_subtitution.bam" \
+    OUTPUT_REPORT="${align_out_folder}/bead_errors/${group_num}_my_clean.substitution_report.txt"
 
 #detect bead synthesis errors: need to add primer sequences to this
-/home/project6/tools/dropseq-3.0.2/DetectBeadSynthesisErrors \
-    I="bead_errors/${group_num}_my_clean_subtitution.bam" \
-    O="bead_errors/${group_num}_my_clean.bam" \
-    REPORT="bead_errors/${group_num}_my_clean.indel_report.txt" \
-    OUTPUT_STATS="bead_errors/${group_num}_my.synthesis_stats.txt" \
-    SUMMARY="bead_errors/${group_num}_my.synthesis_stats.summary.txt"
+"${DropSeq_path}/DetectBeadSynthesisErrors" \
+    I="${align_out_folder}/bead_errors/${group_num}_my_clean_subtitution.bam" \
+    O="${align_out_folder}/bead_errors/${group_num}_my_clean.bam" \
+    REPORT="${align_out_folder}/bead_errors/${group_num}_my_clean.indel_report.txt" \
+    OUTPUT_STATS="${align_out_folder}/bead_errors/${group_num}_my.synthesis_stats.txt" \
+    SUMMARY="${align_out_folder}/bead_errors/${group_num}_my.synthesis_stats.summary.txt"
 
-/home/project6/tools/dropseq-3.0.2/BamTagHistogram \
+"${DropSeq_path}/BamTagHistogram" \
     I="${out_loc}_star_gene_exon_tagged.bam" \
     O="${out_loc}_out_cell_readcounts.txt.gz" \
     TAG=XC
 
 gunzip "${out_loc}_out_cell_readcounts.txt.gz"
 
-python3 ../code/cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt.gz" -o  "${out_loc}"
+wd=$(pwd)
+
+python3 cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt" -o  "${wd}/${out_loc}"
 
 #use DigitalExpression to get gene expression matrix
-/home/project6/tools/dropseq-3.0.2/DigitalExpression \
+"${DropSeq_path}/DigitalExpression" \
     I="${out_loc}_star_gene_exon_tagged.bam" \
     O="${out_loc}_out_gene_exon_tagged.dge.txt.gz" \
     SUMMARY="${out_loc}_out_gene_exon_tagged.dge.summary.txt" \
@@ -113,3 +142,5 @@ python3 ../code/cell_barcodes.py -i "${out_loc}_out_cell_readcounts.txt.gz" -o  
     CELL_BC_FILE="${out_loc}_barcodes.txt"
 
 gunzip "${out_loc}_out_gene_exon_tagged.dge.txt.gz"
+
+done < "$input_file"

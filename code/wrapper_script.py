@@ -1,11 +1,10 @@
-#example command: python test_wrapper.py -m sampledata-to-qc.txt -t /home/project6/tools_all
-
+#example command: python wrapper_script.py -m sampledata-to-qc.txt -t /home/project6/tools_all
 import os 
 import argparse
 import sys
 
 def check_arg(args=None):
-    parser = argparse.ArgumentParser(description="test_wrapper.py") #specify the name of the script
+    parser = argparse.ArgumentParser(description="wrapper_mm10.py") #specify the name of the script
     parser.add_argument("-m", "--metadata", #add metadata file argument
     help="metadata with paired fastq names, sample group, number, and output location",
     required=True)
@@ -26,10 +25,14 @@ drop_seq_qc_command = "./drop_seq_qc.sh -i " + sample_meta + " -t " + tools_dir
 
 os.system(drop_seq_qc_command)
 
-os.system("wget ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE63nnn/GSE63472/suppl/GSE63472_mm10_reference_metadata.tar.gz -P ../sample_data")
-os.system("tar -xvzf ../sample_data/GSE63472_mm10_reference_metadata.tar.gz -C ../sample_data")
+os.system("wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.fna.gz -P ../sample_data")
+os.system("wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz -P ../sample_data")
+os.system("mv ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna.gz ../sample_dataGCF_000001635.26_GRCm38.p6_genomic.fasta.gz")
 
-star_quant_command = "./drop_seq_mm10.sh -i " + sample_meta + " -o align_quant_output -t " + tools_dir
+os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta.gz")
+os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz")
+
+star_quant_command = "./drop_seq_p2.sh -i " + sample_meta + " -o align_quant_output -t " + tools_dir
 
 os.system(star_quant_command)
 
