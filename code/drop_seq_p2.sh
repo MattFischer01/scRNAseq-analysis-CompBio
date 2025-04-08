@@ -65,7 +65,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 #let's perform an alignment using STAR: 
     #note: index is hard-coded for now, but the user should either supply the location to this as input or have the code generate it
 $STAR_path \
---genomeDir /home/project6/genome_index \
+--genomeDir /home/project6/genome_index_new \
 --readFilesIn $read_in \
 --outFileNamePrefix "${out_loc}_star"
 
@@ -80,16 +80,6 @@ java -jar $Picard_path CreateSequenceDictionary \
     R=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
     O=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
 
-java -jar $Picard_path ConvertToRefFlat \
-    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
-    SEQUENCE_DICTIONARY=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
-    OUTPUT=my.refFlat
-
-java -jar $Picard_path ReduceGTF \
-    SEQUENCE_DICTIONARY=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
-    GTF=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
-    OUTPUT=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.reduced.gtf
-
 #merge alignment BAM with unaligned
 java -Xmx4g -jar $Picard_path MergeBamAlignment \
     REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
@@ -103,7 +93,8 @@ java -Xmx4g -jar $Picard_path MergeBamAlignment \
 "${DropSeq_path}/TagReadWithGeneFunction" \
     I="${out_loc}_merged.bam" \
     O="${out_loc}_star_gene_exon_tagged.bam" \
-    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf
+    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+    2>/dev/null
 
 mkdir "${align_out_folder}/bead_errors"
 
