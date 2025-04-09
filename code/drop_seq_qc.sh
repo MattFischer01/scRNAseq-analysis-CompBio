@@ -2,15 +2,25 @@
 
 #This code will read in a text file and run paired end reads through Drop-seq's qc process.
 
-#Example command to run: nohup /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/drop_seq_qc.sh -i /home/2025/mfischer10/scRNAseq-analysis-CompBio/code/reads-to-qc.txt &
+#Example command to run: nohup ./drop_seq_qc.sh -i ./sampledata-to-qc.txt -t ../tools &
 
-#Takes an argument for the path to the text file and assigns it to variable input_file.
-if [[ "$1" == "-i" || "$1" == "--input" ]]; then
+if [[ "$1" == "-i" || "$1" == "--input" ]]; then #Takes an argument for the path to the text file and assigns it to variable input_file.
     input_file="$2"
 else
     echo "Unknown parameter passed: $1"
     exit 1
 fi
+
+if [[ "$3" == "-t" || "$3" == "--tools" ]]; then #take in tools directory as tools_dir
+    tools_dir="$4"
+else
+    echo "Unknown parameter passed: $4"
+    exit 1
+fi
+
+picard_path="${tools_dir}/picard.jar" #construct full Picard path
+dropSeq_path="${tools_dir}/dropseq-3.0.2" #construct full DropSeq path
+
 
 while IFS=$'\t' read -r read1 read2 output group number; do
        qc_output="${output}/${group}/${group}_${number}"
@@ -28,7 +38,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Picard FastqToSam"
-       java -jar /home/project6/tools/picard.jar FastqToSam \
+       java -jar $picard_path FastqToSam \
               F1="$read1" \
               F2="$read2" \
               O="$qc_output/${group}_${number}_unaligned_read_pairs.bam" \
@@ -43,7 +53,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 #Step 2a: Cell barcode
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Dropseq TagBamWithReadSequenceExtended - Cell Barcode"
-       /home/project6/tools/dropseq-3.0.2/TagBamWithReadSequenceExtended \
+       "${dropSeq_path}/TagBamWithReadSequenceExtended" \
               INPUT="$qc_output/${group}_${number}_unaligned_read_pairs.bam" \
               OUTPUT="$qc_output/${group}_${number}_unaligned_tagged_Cell.bam" \
               SUMMARY="$qc_output/${group}_${number}_unaligned_tagged_Cellular.bam_summary.txt" \
@@ -58,7 +68,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 #Step 2b: Molcular barcode
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Dropseq TagBamWithReadSequenceExtended - Molecular Barcode"
-       /home/project6/tools/dropseq-3.0.2/TagBamWithReadSequenceExtended \
+       "${dropSeq_path}/TagBamWithReadSequenceExtended" \
               INPUT="$qc_output/${group}_${number}_unaligned_tagged_Cell.bam" \
               OUTPUT="$qc_output/${group}_${number}_unaligned_tagged_CellMolecular.bam" \
               SUMMARY="$qc_output/${group}_${number}_unaligned_tagged_Molecular.bam_summary.txt" \
@@ -76,7 +86,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 ##Filtering step to remove read where the cell or molecular barcode has low quality bases (based on the XQ assigned tag during TagBamWithReadSequenceExtended)
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Dropseq FilterBam"
-       /home/project6/tools/dropseq-3.0.2/FilterBam \
+       "${dropSeq_path}/FilterBam" \
               TAG_REJECT=XQ \
               INPUT="$qc_output/${group}_${number}_unaligned_tagged_CellMolecular.bam" \
               OUTPUT="$qc_output/${group}_${number}_unaligned_tagged_filtered.bam"
@@ -90,7 +100,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Dropseq TrimStartingSequence"
-       /home/project6/tools/dropseq-3.0.2/TrimStartingSequence \
+       "${dropSeq_path}/TrimStartingSequence" \
               INPUT="$qc_output/${group}_${number}_unaligned_tagged_filtered.bam" \
               OUTPUT="$qc_output/${group}_${number}_unaligned_tagged_trimmed_smart.bam" \
               OUTPUT_SUMMARY="$qc_output/${group}_${number}_adapter_trimming_report.txt" \
@@ -105,7 +115,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 ##Second sequence cleanup program designed to trim away trailing polyA tails from reads:
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Dropseq PolyATrimmer"
-       /home/project6/tools/dropseq-3.0.2/PolyATrimmer \
+       "${dropSeq_path}/PolyATrimmer" \
               INPUT="$qc_output/${group}_${number}_unaligned_tagged_trimmed_smart.bam" \
               OUTPUT="$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam" \
               OUTPUT_SUMMARY="$qc_output/${group}_${number}_polyA_trimming_report.txt" \
@@ -120,7 +130,7 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 
 {
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Running Picard SamToFastq"
-       java -Xmx4g -jar /home/project6/tools/picard.jar SamToFastq \
+       java -Xmx4g -jar $picard_path SamToFastq \
               INPUT="$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.bam" \
               FASTQ="$qc_output/${group}_${number}_unaligned_mc_tagged_polyA_filtered.fastq"
        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Completed Picard SamToFastq"
