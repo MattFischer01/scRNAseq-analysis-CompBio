@@ -150,3 +150,10 @@ Once you are in the code directory, run this command:
 `python3 test_wrapper.py -m sampledata-to-qc.txt`
 
 The -m parameter allows you to specify the path to your metadata containing paired-end fastq files and the associated condition and sample group
+
+
+# Seurat Tutorial 
+
+Here is a link to a Seurat tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/ 
+
+The tutorial goes through applying PCA, clustering, differential gene expression analysis, and cell type annotation. Before this can be followed, the Seurat script needs to be ran. I will add more information on this part soon.
