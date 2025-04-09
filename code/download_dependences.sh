@@ -16,7 +16,16 @@ wget -P ../tools https://github.com/broadinstitute/Drop-seq/releases/download/v3
 unzip ../tools/dropseq-3.0.2.zip -d ../tools
 
 #Third tool: STAR
+#download STAR in the tools directory
+wget -P ../tools https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz
+tar -xzf ../tools/2.7.11b.tar.gz
 
+#compile STAR
+cd ../tools/STAR-2.7.11b/source
+make STAR
+
+#cd back into the code directory
+cd ../../../code
 
 #Download necessary metadata to run STAR alignment.
 wget -P ../meta_data https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.fna.gz 

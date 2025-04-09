@@ -50,15 +50,15 @@ while IFS=$'\t' read -r read1 read2 output group number; do
 
 #overhang = $(cat max_read.txt)
 
-#if ! test -d "home/project6/genome_index"; then
-  #mkdir genome_index
+#if ! test -d "../meta_data/genome_index"; then
+  #mkdir ../meta_data/genome_index
 
   #$STAR_path \
   #--runThreadN 2 \
   #--runMode genomeGenerate \
-  #--genomeDir genome_index \
-  #--genomeFastaFiles sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna \
-  #--sjdbGTFfile sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+  #--genomeDir ../meta_data/genome_index \
+  #--genomeFastaFiles ../meta_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
+  #--sjdbGTFfile ../meta_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
   #--sjdbOverhang 79
 #fi
 
@@ -77,12 +77,12 @@ java -Xmx4g -jar $Picard_path SortSam \
 
 #####creating metadata from the mouse reference files which can be used later
 java -jar $Picard_path CreateSequenceDictionary \
-    R=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
-    O=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
+    R=../meta_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
+    O=../meta_data/GCF_000001635.26_GRCm38.p6_genomic.dict \
 
 #merge alignment BAM with unaligned
 java -Xmx4g -jar $Picard_path MergeBamAlignment \
-    REFERENCE_SEQUENCE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
+    REFERENCE_SEQUENCE=../meta_data/GCF_000001635.26_GRCm38.p6_genomic.fasta \
     UNMAPPED_BAM=$read_bam \
     ALIGNED_BAM="${out_loc}_aligned.sorted.bam" \
     OUTPUT="${out_loc}_merged.bam" \
@@ -93,7 +93,7 @@ java -Xmx4g -jar $Picard_path MergeBamAlignment \
 "${DropSeq_path}/TagReadWithGeneFunction" \
     I="${out_loc}_merged.bam" \
     O="${out_loc}_star_gene_exon_tagged.bam" \
-    ANNOTATIONS_FILE=../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
+    ANNOTATIONS_FILE=../meta_data/GCF_000001635.26_GRCm38.p6_genomic.gtf \
     2>/dev/null
 
 mkdir "${align_out_folder}/bead_errors"

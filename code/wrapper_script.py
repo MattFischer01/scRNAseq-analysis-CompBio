@@ -25,7 +25,7 @@ drop_seq_qc_command = "./drop_seq_qc.sh -i " + sample_meta + " -t " + tools_dir
 
 os.system(drop_seq_qc_command)
 
-star_quant_command = "./drop_seq_p2.sh -i " + sample_meta + " -o align_quant_output -t " + tools_dir
+star_quant_command = "./drop_seq_p2.sh -i " + sample_meta + " -o align-quant-output -t " + tools_dir
 
 os.system(star_quant_command)
 
