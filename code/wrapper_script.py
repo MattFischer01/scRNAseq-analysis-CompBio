@@ -25,14 +25,7 @@ drop_seq_qc_command = "./drop_seq_qc.sh -i " + sample_meta + " -t " + tools_dir
 
 os.system(drop_seq_qc_command)
 
-os.system("wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.fna.gz -P ../sample_data")
-os.system("wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.26_GRCm38.p6/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz -P ../sample_data")
-os.system("mv ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fna.gz ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta.gz")
-
-os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.fasta.gz")
-os.system("gunzip ../sample_data/GCF_000001635.26_GRCm38.p6_genomic.gtf.gz")
-
-star_quant_command = "./drop_seq_p2.sh -i " + sample_meta + " -o align_quant_output -t " + tools_dir
+star_quant_command = "./drop_seq_p2.sh -i " + sample_meta + " -o align-quant-output -t " + tools_dir
 
 os.system(star_quant_command)
 
