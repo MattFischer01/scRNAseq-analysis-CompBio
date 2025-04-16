@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #This script will allow the user to download dependencies necessary to run the pipeline. They should run this script before the pipeline, so they will only have to do it one. The tools will be downloaded in a tool directory found in the parent directory. 
 
 #This code should be run in ./code directory. 
@@ -18,10 +20,11 @@ unzip ../tools/dropseq-3.0.2.zip -d ../tools
 #Third tool: STAR
 #download STAR in the tools directory
 wget -P ../tools https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz
-tar -xzf ../tools/2.7.11b.tar.gz
+cd ../tools
+tar -xzf ./2.7.11b.tar.gz
 
 #compile STAR
-cd ../tools/STAR-2.7.11b/source
+cd ./STAR-2.7.11b/source
 make STAR
 
 #cd back into the code directory
