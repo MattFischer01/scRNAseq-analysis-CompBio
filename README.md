@@ -39,12 +39,24 @@ install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR")
 
 # Pipeline in Detail:
 
-## Step 0: Clone the repo and move into it
+## Step 0: Clone the repo, move into code, and download dependencies
 
 `git clone https://github.com/MattFischer01/scRNAseq-analysis-CompBio.git`
 
-`cd scRNAseq-analysis-CompBio`
+`cd scRNAseq-analysis-CompBio/code`
 
+`bash download_dependences.sh`
+
+download_dependences.sh will download Drop-seq, Picard, and STAR dependencies into a tools directory that will be used in the wrapper. This code will also download the mouse metadata for STAR alignment. 
+
+
+## OPTIONAL Test dataset: 
+
+Once you are in the code directory and you have run the download_dependenes.sh, run this command: 
+
+`python3 wrapper_script.py -m sampledata-to-qc.txt -t ../tools`
+
+The -m parameter allows you to specify the path to the sample data containing paired-end fastq files and the associated condition and sample group
 
 ## Step 1: Fetch FASTQ Files
 
@@ -52,8 +64,15 @@ If there are FASTQ files you need to download from NCBI's SRA database, the acce
 
 This step fetches the SRA files using fasterq-dump and then gzips them to save space. The files will be saved in a directory titled scRNA_SRA. This step may take awhile depending on number of FASTQ files downloaded and size of each file. 
 
+`bash fetch_fastq.sh srr_ids.txt`
 
-## Step 2: DropSeq - QC
+## Step 2: Running the wrapper.py script
+
+`python3 wrapper_script.py -m reads-to-qc.txt -t ../tools`
+
+The following command will run through the following steps: 
+
+### Step 2a: DropSeq - QC
 Our DropSeq QC pipeline is derived from the DropSeq Alignment Cookbook from the McCarroll Lab, the founders of DropSeq. You are welcome to explore the McCarroll lab's pdf in our github for further details outside this brief explanation. 
 
 The QC step reads in a tab-separated txt file with the following columns:
@@ -85,13 +104,11 @@ e. **Trim 3' polyA sequence**
 f. **Convert BAM back to FASTQ for alignment**  
    - Extract sequences from BAM and convert them to FASTQ format for alignment.
 
-### Example command:
-`/path/to/drop_seq_qc.sh -i /path/to/reads-to-qc.txt`
 
-### Output:
+#### Output:
 Each read pair following qc will be outputted as 1 FASTQ (since with appended the cell and molecular barcode to read 2 and deleted read 1) with the following file name: ${condition}_${sample number}_unaligned_mc_tagged_polyA_filtered.fastq, which will continue in the pipeline to STAR alignment. 
 
-## Step 3: STAR - alignment 
+### Step 2b: STAR - alignment 
 
 a. **create a genome index**
    - depending on your organism, you will fetch a reference genome (.fasta) and genomic features file (.gtf) from NCBI for that organism
@@ -99,7 +116,7 @@ a. **create a genome index**
          - in this case, we pre-downloaded reference files for the mouse genome, and pre-generated an index for faster processing
 b. **align fastq from QC step to your genome index**
 
-## Step 4: DropSeq - Quantification
+### Step 2c: DropSeq - Quantification
 
 a. **Sort alignment output**
    - ensures alignments from the same read stay together in the BAM file
@@ -123,33 +140,11 @@ f. **Create Digital Expression Matrix**
 	- Settings: min_num_genes_per_cell = 500, num_core_barcodes=100
 	- Generates a gene expression count matrix, which can serve as input for Seurat downstream analysis
 
-### Example command:
-`/path/to/drop_seq_p2.sh -i /path/to/reads-to-qc.txt -o output_directory_name`
 
+#### Output:
 The code will create an output directory with the name you specify. In our wrapper script, this directory is called align_quant_output
 
-### Output:
 Each FASTQ from the QC step will output one gene expression matrix with the following file name: ${condition}_${sample number}_out_gene_exon_tagged.dge.txt, which can be used as input for Seurat and MAST
-
-
-# Running the Test Data:
-
-As previously mentioned, the first step is to clone our repo, then cd into it. 
-
-`git clone https://github.com/MattFischer01/scRNAseq-analysis-CompBio.git`
-
-`cd scRNAseq-analysis-CompBio`
-
-
-Then, cd into the "code" directory.
-
-`cd code`
-
-Once you are in the code directory, run this command: 
-
-`python3 test_wrapper.py -m sampledata-to-qc.txt`
-
-The -m parameter allows you to specify the path to your metadata containing paired-end fastq files and the associated condition and sample group
 
 
 # Seurat Tutorial 
