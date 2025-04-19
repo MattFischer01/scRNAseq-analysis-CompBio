@@ -25,11 +25,11 @@ process_dge_file <- function(file_path, min_cells = 3, min_features = 200, mt_th
   # extract GSM ID from the filename
   gsm_id <- sub("_.*", "", basename(file_path))
   
-  # read .gz file using gzfile() (for compressed files)
+  # read .gz file using gzfile() 
   dge_file <- read.table(gzfile(file_path), header = TRUE, row.names = 1, 
                          colClasses = c("character", rep("numeric", ncol(read.table(gzfile(file_path), header = TRUE, nrows = 1)) - 1)))
   
-  # log the number of features and cells
+  # output the number of features and cells
   cat("Number of features (genes):", nrow(dge_file), "\n")
   cat("Number of cells:", ncol(dge_file), "\n")
   
@@ -60,8 +60,8 @@ lines <- readLines("DGE-paths.txt")
 # parse out diff elements based on white space
 parsed <- strsplit(lines, "\\s+")
 
-labels <- sapply(parsed, function(x) x[1])
-paths <- sapply(parsed, function(x) x[3])
+labels <- sapply(parsed, function(x) x[1]) # gets labels as first part 
+paths <- sapply(parsed, function(x) x[3]) # gets paths as third part
 file_list <- paths
 
 # process files and store in a named list with error handling
@@ -72,8 +72,9 @@ for (i in seq_along(paths)) {
   file_path <- paths[i]
   label <- labels[i]
   
-  message("Processing: ", file_path)
-  
+  message("Processing: ", file_path) # this says which file is being processed
+
+  # if there is an error processing DGE files, still store the dge files that do run, but send an error message
   result <- tryCatch({
     dge <- process_dge_file(file_path)
     dge
@@ -89,13 +90,13 @@ for (i in seq_along(paths)) {
   }
 }
 
-# update orig.ident
+# update orig.ident to the dge files
 dge_list <- lapply(dge_list, function(dge) {
   dge@meta.data$orig.ident <- gsub("\\.dge.*", "", dge@meta.data$orig.ident)
   return(dge)
 })
 
-# assign conditions
+# assign conditions to the metdata based on labels
 dge_list <- Map(function(dge, label) {
   dge@meta.data$condition <- label
   return(dge)
@@ -116,9 +117,6 @@ dge_list <- lapply(dge_list, FindVariableFeatures, selection.method = "vst", nfe
 features <- SelectIntegrationFeatures(object.list = dge_list)
 
 # find integration anchors, this step runs CCA to control for batch effects
-# this takes a long time to run, almost two hrs so going to put it in background using future package
-# this will need to be taken out though for final wrapper script
-
 unique_labels <- make.unique(clean_labels, sep = "_")
 
 # rename cells before integration so samples wont be lost, sample names need to be changed eventually
