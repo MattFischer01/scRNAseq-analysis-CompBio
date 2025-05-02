@@ -68,6 +68,7 @@ file_list <- paths
 dge_list <- list()
 clean_labels <- c()
 
+# loops through all file paths
 for (i in seq_along(paths)) {
   file_path <- paths[i]
   label <- labels[i]
@@ -76,17 +77,18 @@ for (i in seq_along(paths)) {
 
   # if there is an error processing DGE files, still store the dge files that do run, but send an error message
   result <- tryCatch({
-    dge <- process_dge_file(file_path)
+    dge <- process_dge_file(file_path) # processes the DGE file with function above
     dge
   }, error = function(e) {
     message("Error processing file: ", file_path)
-    message("   → ", conditionMessage(e))
-    return(NULL)
+    message("   → ", conditionMessage(e)) # gives the error for the file that errored out
+    return(NULL) # sets results to NULL instead of crashing process
   })
-  
+
+# this just filters out any results that errored, adds the result to dge_list, and adds the associated label to clean_labels
   if (!is.null(result)) {
     dge_list[[length(dge_list) + 1]] <- result
-    clean_labels <- c(clean_labels, label)
+    clean_labels <- c(clean_labels, label) 
   }
 }
 
@@ -104,7 +106,6 @@ dge_list <- Map(function(dge, label) {
 
 
 save(dge_list, clean_labels, file = "../pre_integration.RData")
-load("../pre_integration.RData")
 
 #### end of part before canonical correlation analysis and integration ####
 # https://satijalab.org/seurat/archive/v4.3/integration_introduction
@@ -119,20 +120,19 @@ features <- SelectIntegrationFeatures(object.list = dge_list)
 # find integration anchors, this step runs CCA to control for batch effects
 unique_labels <- make.unique(clean_labels, sep = "_")
 
-# rename cells before integration so samples wont be lost, sample names need to be changed eventually
+# rename cells before integration so samples wont be lost
 for (i in seq_along(dge_list)) {
-  sample_name <- unique_labels[i]  # Use cleaned, consistent sample name
-  dge_list[[i]] <- RenameCells(dge_list[[i]], add.cell.id = sample_name)
-  dge_list[[i]]@meta.data$orig.ident <- sample_name
+  sample_name <- unique_labels[i]  # use cleaned, consistent sample name
+  dge_list[[i]] <- RenameCells(dge_list[[i]], add.cell.id = sample_name) # rename cells by adding the sample name as prefix
+  dge_list[[i]]@meta.data$orig.ident <- sample_name # update the 'orig.ident' metadata field to reflect the sample name
 }
 
 # use the features found earlier as the anchor.features
-
 anchors <- FindIntegrationAnchors(object.list = dge_list, anchor.features = features)
 
-# integrate the data
+# integrate the data with the anchors found earlier
 mice.combined <- IntegrateData(anchorset = anchors)
 
-# saving everything from previous analysis because it will take forever to run everything if envs is lost
+# saving everything from previous analysis so it can be loaded in after wrapper
 save(anchors, dge_list, mice.combined, file = "../seurat_post_int.RData")
-load("../seurat_post_int.RData")
+
