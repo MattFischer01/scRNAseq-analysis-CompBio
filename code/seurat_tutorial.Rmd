@@ -387,10 +387,10 @@ The only issue I see with using their provided reference database is that it is 
 
 Then, we can do the same steps as we did after running SingleR. 
 
-```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+```{r, echo=TRUE, results="hide", warning=FALSE, message=FALSE}
 # subset based on astrocytes and EAE mice only
 astrocytes_sc <- subset(mice.combined_cell, subset = sctype_classification == "Astrocytes")
-astrocytes_sc <- subset(astrocytes_sc, subset = condition %in% c("EAE priming", "EAE remission", "EAE peak"))
+astrocytes_sc <- subset(astrocytes_sc, subset = condition %in% c("EAE priming", "EAE remission", "EAE peak", "naive", "CFA"))
 
 # cluster astrocytes only
 astrocytes_sc <- RunPCA(astrocytes_sc, features = VariableFeatures(object = astrocytes_sc))
@@ -408,16 +408,18 @@ DimPlot(astrocytes_sc, reduction = "tsne", label = TRUE, repel = TRUE, group.by 
 If you want to, you could also view the EAE condition composition within each cluster. I will go through the steps of doing that below. It is a lot of data manipulation to get the counts and proportions per cluster.
 
 ```{r, echo=TRUE, warning=FALSE, message=FALSE}
-# simplify the condition labels for easier plotting, add this new label to Seurat object
+# simplify the condition labels for easier plotting
 astrocytes_sc$condition_simple <- dplyr::recode(astrocytes_sc$condition,
                                          "EAE priming" = "Priming",
                                          "EAE peak" = "Peak",
                                          "EAE remission" = "Remitting",
-                                         "EAE" = "Naive")
+                                         "naive" = "Naive",
+                                         "CFA" = "CFA")
 
-# count total number of cells per condition-cluster, have to access meta.data for this
+# count total number of cells per condition-cluster 
 cluster_condition_df <- astrocytes_sc@meta.data |> 
-  dplyr::count(seurat_clusters, condition_simple)
+  dplyr::count(seurat_clusters, condition_simple) |> 
+  dplyr::filter(condition_simple != "CFA")  # exclude CFA from calculations
 
 # add a column for percentage out of total cells in the dataset
 cluster_condition_df <- cluster_condition_df %>%
@@ -457,6 +459,15 @@ ggplot(cluster_condition_df, aes(x = factor(seurat_clusters), y = percent, fill 
   )
 ```
 
+Following this, you can see how gene expression for certain genes (like astrocyte markers) varies across the different conditions using VlnPlot().
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+# first subset the condition to only the ones of interest
+subset_cells <- subset(astrocytes_sc, subset = condition %in% c("CFA", "EAE priming", "EAE remission", "EAE peak"))
+
+# here i am wanting to look at a few different gene markers of astrocyte cells
+VlnPlot(subset_cells, features = c("Gja1", "S100b", "Aqp4"), group.by = "condition")
+```
 
 ## Pathway Analysis 
 
