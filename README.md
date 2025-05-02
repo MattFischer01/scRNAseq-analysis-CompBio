@@ -49,15 +49,6 @@ install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR",
 
 download_dependences.sh will download Drop-seq, Picard, and STAR dependencies into a tools directory that will be used in the wrapper. This code will also download the mouse metadata for STAR alignment. 
 
-
-## OPTIONAL Test dataset: 
-
-Once you are in the code directory and you have run the download_dependenes.sh, run this command: 
-
-`python3 wrapper_script.py -m sampledata-to-qc.txt -t ../tools`
-
-The -m parameter allows you to specify the path to the sample data containing paired-end fastq files and the associated condition and sample group
-
 ## Step 1: Fetch FASTQ Files
 
 If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference. This file needs to be in the main repository directory as well (above the code directory). 
