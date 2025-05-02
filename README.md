@@ -29,11 +29,11 @@ The following tools must be downloaded and installed to operate the entire pipel
 6. STAR: https://github.com/alexdobin/STAR 
 7. Seurat - R Package: https://cran.r-project.org/web/packages/Seurat/index.html. This can be downloaded in R using ```install.packages("Seurat")```
 8. MAST: https://github.com/RGLab/MAST. This can also be downloaded as an R package using ```install.packages("MAST")```
-9. Other R packages needed: dplyr, patchwork, SingleR, and celldex, which can be downloaded in R using ```install.packages("[package name]")```
+9. Other R packages needed: dplyr, patchwork, ggplot2, enrichR, HGNChelper, openxlsx, SingleR, and celldex, which can be downloaded in R using ```install.packages("[package name]")```
 
 Streamline R Package Installation:
 ```
-install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR"))
+install.packages(c("dplyr", "MAST", "Seurat", "patchwork", "celldex", "SingleR", "enrichR", "HGNChelper","openxlsx", "ggplot2"))
 ```
 
 
@@ -60,11 +60,11 @@ The -m parameter allows you to specify the path to the sample data containing pa
 
 ## Step 1: Fetch FASTQ Files
 
-If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference. This file needs to be in the main repository directory as well (above the code directory).
+If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference. This file needs to be in the main repository directory as well (above the code directory). 
 
 This step fetches the SRA files using fasterq-dump and then gzips them to save space. The files will be saved in a directory titled scRNA_SRA in the main repository directory. This step may take awhile depending on number of FASTQ files downloaded and size of each file. 
 
-This is to be run prior to the main wrapper if you do not have paired FASTQ files already.
+This is to be run prior to the main wrapper if you do not have paired FASTQ files already. If you want to see how this wrapper works, you can run it with the current SRR IDs inside the text file with the steps below.
 
 ```
 # cd into the code directory
@@ -195,7 +195,7 @@ To run the R script, the user needs to provide an argument for the path where th
 
 For example, this runs the script in the background, which is recommended as these steps can take time depending on how many and how large the files are:
 ```
-nohup Rscript seurat_test.R /home/project6/align_output_all/ &
+nohup Rscript seurat_test.R [path/to/gene/expression/matrices] &
 ```
 
 After running this, you should be able to then load the RData file that is in the main repository directory into your RStudio session:
@@ -203,4 +203,4 @@ After running this, you should be able to then load the RData file that is in th
 load("seurat_post_int.RData")
 ```
 
-The steps after this will be detailed in the scRNAseq tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/. The tutorial goes through applying PCA, clustering, differential gene expression analysis, and cell type annotation. 
+The steps after this will be detailed in the scRNAseq tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/. The tutorial goes through applying PCA, clustering, differential gene expression analysis, cell type annotation, and pathway analysis. 

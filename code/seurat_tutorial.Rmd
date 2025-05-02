@@ -1,0 +1,564 @@
+---
+title: "scRNA Seq Seurat Tutorial"
+author: "Tyler Jensen"
+date: "`r Sys.Date()`"
+output:
+  cleanrmd::html_document_clean:
+    theme: water-dark
+    toc: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+set.seed(1234)
+knitr::opts_chunk$set(
+  echo = TRUE,        # Show code in output
+  warning = FALSE,    # Hide warnings
+  message = FALSE,    # Hide messages (like package load messages)
+  fig.align = "center", # Center figures
+  fig.width = 7,      # Default figure width
+  fig.height = 5      # Default figure height
+)
+
+library(dplyr)
+library(MAST)
+library(Seurat)
+library(patchwork)
+library(celldex)
+library(SingleR)
+library(ggplot2)
+library(enrichR)
+
+lapply(c("HGNChelper","openxlsx"), library, character.only = T)
+
+setwd('/home/2025/hjensen2/archive/scRNAseq-analysis-CompBio/GEO')
+
+load("tutorial.RData")
+load("singleR_astrocytes.RData")
+
+```
+
+## Post-running Wrapper Script
+
+At this point you should have ran the Seurat portion of the wrapper script, which saves an RData file containing a Seurat object post-integration of all samples. Load in the RData file and you can get started with the rest of the Seurat pipeline.
+
+I will be mainly going over steps to scale the data, cluster the data, and find differential marker/gene expression, but will also go over two different ways to add cell type annotations to the Seurat object. There are many other ways to do this last step, but I found two easier ways so far. 
+
+
+## Scaling Data
+
+Scaling the data is applying a linear transformation and can be used with the default parameters unless you want to scale all the features, not just the variable features.
+
+**Make sure the default assay is set to integrated.**
+
+```{r, eval=FALSE}
+DefaultAssay(mice.combined) <- "integrated"
+
+```
+
+Scale the data with defaults.
+
+```{r, eval=FALSE}
+mice.combined <- ScaleData(object = mice.combined)
+```
+
+## Run PCA with Variable Features
+
+The features used to perform PCA are by default the variable features chosen before (this was in the Seurat script ran previously). But if you want to choose a subset to find variable features off of instead, this can be specified with the features parameter.
+
+```{r, echo=TRUE, warning=FALSE, message = FALSE, , eval=FALSE}
+mice.combined <- RunPCA(mice.combined, features = VariableFeatures(object = mice.combined))
+```
+
+This will print out the first five features from the first five principal components. 
+
+```{r, echo=TRUE, warning=FALSE}
+print(mice.combined[["pca"]], dims = 1:5, nfeatures = 5)
+```
+
+VizDimLoadings(), DimPlot(), DimHeatmap() can be used to look at cells and features that define the PCA. 
+
+VizDimLoadings() shows each feature (gene) within the PC and whether or not it is correlated (positive loading) within the PC. 
+
+```{r, echo=TRUE, warning=FALSE}
+VizDimLoadings(mice.combined, dims = 1:2, reduction = "pca")
+```
+
+
+```{r, echo=TRUE, warning=FALSE}
+DimPlot(mice.combined, reduction = "pca") + NoLegend()
+```
+
+
+DimHeatmap() is nice because you can see the different sources of heterogeneity in the data. The cells parameter will plot the extreme positive and negative cells. You can set however many PCs you want to look at, I am just showing 2 here.
+
+```{r, echo=TRUE, warning=FALSE}
+DimHeatmap(mice.combined, dims = 1:2, cells = 500, balanced = TRUE) + theme(panel.grid.major = element_blank())
+```
+
+
+## Determining how many PCs to include in analysis
+
+Each PC captures as much variation in the data as possible, with only each PC explaining a portion of the total variance. The first PC always captures the most variance and the second captures most remaining variance, and so on. However, at some point adding more PCs gives you only a bit more information, but not enough to include. 
+
+An Elbow Plot can help determine how many PCs to include in the downstream analysis. It plots the number of PCs vs. the variance explained. Wherever the "elbow" or plateau is in the plot, is how many PCs you want to pick. It is generally recommended to not pick less than 5 PCs.
+
+```{r, echo=TRUE, warning=FALSE}
+ElbowPlot(mice.combined)+ theme(panel.grid.major = element_blank())
+```
+
+In this plot, I would shoot for something between 15 and 20.
+
+
+**Usually running PCA takes a bit of time depending on how large the Seurat object is. If it is taking awhile, I would recommend saving the Seurat object and anything else important to an .RData file using the save() command. This way you won't have to run PCA again if you need to come back later.**
+
+
+## Clustering the cells
+
+### Finding neighbors and clusters
+
+Seurat uses a graph-based clustering method by calculating the distance between cells using the PCs, then making a KNN graph where edges connect similar cells. Clustering is then performed using algorithms like Louvain (default) or SLM. You can control the granularity at which you want to cluster the cells as well with the resolution parameter. Typical range for ~3,000 cells is 0.4-1.2. If you get less clusters than expected, you can increase the resolution.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# In this example I am using 1-15 PCs (first 15 PCs)
+mice.combined <- FindNeighbors(mice.combined, reduction = "pca", dims = 1:15)
+
+mice.combined <- FindClusters(mice.combined, resolution = 0.5) 
+
+```
+
+### Running tSNE and/or UMAP
+
+Seurat provides non-linear dimensional reduction methods like tSNE and UMAP that group similar cells in a low-dimensional space. tSNE is good at preserving local structure (more fine-grain information) and UMAP is good at preserving global structure, which may offer more interpretable visualizations. If you want to reveal clusters and look more at local structure, tSNE is the better option, but if you more so want to explore the overall structure UMAP is better.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# tSNE
+mice.combined <- RunTSNE(mice.combined, reduction = "pca", dims = 1:15)
+
+# UMAP
+mice.combined <- RunUMAP(mice.combined, reduction = "pca", dims = 1:15)
+```
+
+You can then visualize the clusters using DimPlot(). I will show the tSNE reduction only.
+
+You can also label each individual cluster depending on the metadata provided prior to integration (this is in the wrapper script).
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+
+# this looks at only the mice with EAE in the condition name, but this could be changed depending on the condition you are looking at
+p1 <- DimPlot(subset(mice.combined, subset = condition %in% c("EAE priming", "EAE remission", "EAE peak")), 
+              reduction = "tsne", group.by = "condition")
+# this plot groups by condition (provided from metadata in wrapper) using tSNE
+p2 <- DimPlot(mice.combined, reduction = "tsne", group.by = "condition")
+# this plot is using tSNE reduction with no other parameters
+p3 <- DimPlot(mice.combined, reduction = "tsne", group.by = "seurat_clusters")
+p1
+p2
+p3 
+
+```
+
+**Here I would also save the Seurat object since clustering is finished. Make sure each RData file is named something different so nothing is overwritten.**
+
+
+## MAST - Finding Markers and Differential Expression Analysis
+
+### Before MAST: 
+
+1. The active identity of the Seurat object needs to be the seurat clusters. 
+2. The default assay needs to be set to "RNA" instead of "integrated".
+3. The count layers need to be joined or else FindMarkers() will not run without this. This basically just joins all of the different counts across each expression matrix into one. It still preserves all important information.
+
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+Idents(mice.combined) <- "seurat_clusters" # seurat_clusters is the default label
+
+# set default assay to "RNA"
+DefaultAssay(mice.combined) <- "RNA"
+
+# join layers
+mice.combined_joined <- JoinLayers(mice.combined)
+```
+
+### Finding Markers
+
+There are a few different functionalities Seurat's FindMarkers() and FindAllMarkers() provides. 
+
+1. You can find all markers of a certain cluster by specifying the ident.1 (provide cluster number to this parameter). 
+2. You can find all markers distinguishing a certain cluster from another cluster or group of clusters.
+3. You can find markers for every cluster compared to all other cells using FindAllMarkers or FindMarkers.
+
+You can pass different thresholds and tests to use as well. For this, I will use the MAST test, only test genes expressed in at least 25% of cells in a cluster (min.pct), and limit testing on certain genes that don't meet a signficance threshold (logfc.threshold). By including the last two parameters, it speeds up the command.
+
+This is an example of how you could loop through each cluster or certain clusters and find markers compared to all other cells. An easier solution would be to use FindAllMarkers() if you want to do this for each cluster, but I wanted to include this in case you want to only do certain clusters.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# make a list to store the DE results for each cluster
+mast_results <- list()
+
+# this takes awhile, so save rdata after this step
+
+# for each cluster, compare it to all other cells and return DE results to mast_results
+for (cluster in levels(Idents(mice.combined_joined))) {
+  mast_results[[cluster]] <- FindMarkers(mice.combined_joined,
+                                         ident.1 = cluster, # comparing current cluster to all other cells 
+                                         test.use = "MAST", # MAST algorithm
+                                         min.pct = 0.25,  # only test genes expressed in at least 25% of cells in a cluster
+                                         logfc.threshold = 0.25) # limits testing on genes, speeds up process (default is 0.1)
+}
+```
+
+This example code runs FindAllMarkers() using the same parameters as above.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+mice.markers <- FindAllMarkers(mice.combined_joined, 
+                                         test.use = "MAST", # MAST algorithm
+                                         min.pct = 0.25,  # only test genes expressed in at least 25% of cells in a cluster
+                                         logfc.threshold = 0.25) # limits testing on genes, speeds up process (default is 0.1))
+```
+
+**After running MAST I would save another RData file just so these results can be loaded later.**
+
+
+### Visualizing the Marker Expression
+
+From the markers found, you can visualize the marker expression using VinPlot(), which shows the expression level across clusters, and FeaturePlot(), which can plot the marker expression on the tSNE/UMAP plot you ran above. There are other ways to visualize the markers, but I won't go through them here.
+
+You can find the top differentially expressed genes for specific clusters if you used the for loop with this function: 
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+head(mast_results[["0"]]) # replace 0 with cluster of interest
+```
+
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+# below are common astrocyte markers
+vln_plot <- VlnPlot(mice.combined_joined, features = c("S100b"))
+
+feature_plot <- FeaturePlot(mice.combined_joined, c('S100b'))
+
+vln_plot
+feature_plot
+```
+
+
+## Cell Type Annotation
+
+There are a few different ways you can perform cell type annotation in Seurat because Seurat does not provide a specific way to do this within its vignette. I will go through two different ways, one which has set, provided reference, and another that has provided references, but you can also use a custom reference.
+
+If you do not have specific gene markers you know correlate to a cell type or want to do a quick, non-intensive I would recommend using the celldex package in R. The package provides references for mice and human tissues, which is very convenient for quick exploratory analysis. Then, you can use SingleR to annotate the cell types. You could probably add your own reference here too, but I did not test this.
+
+If you want to use your own gene marker database/document, ScType is a fast and relatively easy tool to use. The developers also provide a few references, but they lack examples for mice cell annotations. Luckily, this is easy to remedy by changing the gene markers from all uppercase to just the first letter capitalized (I will go into more detail later). The developers also have a web version of their R tool if this is of more interest, but I will not go through the steps of using it here. 
+
+
+### Cell Type Annotation using celldex and SingleR
+
+The package celldex is convenient as it is just an R package that can be easily downloaded (it is not external like ScType). The package provides an assortment of different expression datasets, but the one we will use in this tutorial is the MouseRNAseqData. The dataset from the Benayoun Lab (Benayoun et al., 2019), contains 18 different main cell type labels and 28 subtype labels that also have Cell Ontology labels attached to them. I will go through how to annotate the cells using both labels. 
+This retrieves the Mouse RNAseq reference.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+ref <- celldex::MouseRNAseqData() # retrieves the reference
+
+# View(as.data.frame(colData(ref)))  view to see if it has cell types you are interested in
+```
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+unique(ref$label.fine) # allows you to look at the subsetted labels, label.main are the unsubsetted labels
+```
+
+Then we will use the joined layers Seurat object we created earlier to get the cells in our dataset and run the SingleR function to get the cell annotations from the reference. Then we will add the labels to the joined layers Seurat object.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# getting cells, need to use the joined layer object since getassaydata() doesnt work on multiple layers
+mice_counts <- GetAssayData(mice.combined_joined, layer = "counts")
+
+# run the SingleR function to get cell annotations from reference
+pred <- SingleR(test = mice_counts,
+                ref = ref,
+                labels = ref$label.fine) # get fine labels
+
+pred2 <- SingleR(test = mice_counts,
+                ref = ref,
+                labels = ref$label.main) # get main labels
+
+# add labels to joined layers seurat object
+
+# adding fine labels as singleR.labels
+# basically matching the rownames from the meta data of the Seurat object to the row names of the predicted cell type
+mice.combined_joined$singleR.labels <- pred$labels[match(rownames(mice.combined_joined@meta.data), rownames(pred))]
+
+# adding main labels as singleR.main_labels
+mice.combined_joined$singleR.main_labels <- pred2$labels[match(rownames(mice.combined_joined@meta.data), rownames(pred2))]
+```
+
+However, before plotting, we need to filter out any non-brain cell types since the reference we used is all mice cell types. Even if the cell isn't a liver cell type, it can still be classified as such since it is the closest match.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# filter out non-brain cells
+
+# non-brain cell types to exclude
+non_brain_cells <- c(
+  "Adipocytes", "Erythrocytes", "B cells", 
+  "Cardiomyocytes", "Hepatocytes"
+)
+
+# set their label to "Unknown"
+mice.combined_joined$singleR.fine.labels_clean <- ifelse(
+  mice.combined_joined$singleR.labels %in% non_brain_cells,
+  "Unknown",
+  mice.combined_joined$singleR.labels
+)
+
+# Set their label to NA or "Unknown"
+mice.combined_joined$singleR.main.labels_clean <- ifelse(
+  mice.combined_joined$singleR.main_labels %in% non_brain_cells,
+  "Unknown",
+  mice.combined_joined$singleR.main_labels
+)
+
+# plot cleaned labels
+DimPlot(mice.combined_joined, reduction = "tsne", group.by = "singleR.fine.labels_clean")
+DimPlot(mice.combined_joined, reduction = "tsne", group.by = "singleR.main.labels_clean")
+
+```
+
+Then you can visualize this using DimPlot like earlier, you just need to change the group by to whatever you named your singleR labels. 
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+# here i am only plotting the EAE mice if they have a stage and grouping by the main labels
+# to do this, you subset by condition and set group.by to "singleR.main.labels_clean"
+
+DimPlot(subset(mice.combined_joined, subset = condition %in% c("EAE","EAE priming", "EAE remission", "EAE peak")), 
+              reduction = "tsne", group.by = "singleR.main.labels_clean", label = TRUE, repel = TRUE) +
+  ggtitle("EAE Mice Clusters Colored by Cell Type")
+```
+
+If you want to cluster a certain cell type, you can subset the cells by the type and then redo the PCA, tSNE/UMAP, and clustering. I will subset the Astrocytes in the example below. 
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+# subset the data by whichever label or labels you are interested in
+astrocytes_data <- subset(mice.combined_joined, subset = singleR.main_labels == "Astrocytes")
+
+# then redo the steps i mentioned above
+astrocytes_data <- RunPCA(astrocytes_data, features = VariableFeatures(object = astrocytes_data))
+astrocytes_data <- FindNeighbors(astrocytes_data, reduction = "pca", dims = 1:15)  # use the same number of PCA dimensions
+astrocytes_data <- FindClusters(astrocytes_data, resolution = 0.5) # higher resolution to get more clusters, can increase it or lower it as needed
+astrocytes_data <- RunTSNE(astrocytes_data, reduction = "pca", dims = 1:15)
+
+```
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+# then you can visualize the plot with DimPlot like before
+DimPlot(astrocytes_data, reduction = "tsne", group.by = "seurat_clusters")
+```
+
+### Cell Annotation with ScType
+
+Now I will be detailing how to use ScType to annotate the cell types. It is a bit more involved in terms of how to download the tool and prepare the cell type database if you are not providing your own. I go over this in the README.md. 
+
+You will want to use these packages (some are repeat) and source these GitHub links to start.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+lapply(c("dplyr","Seurat","HGNChelper","openxlsx"), library, character.only = T)
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/gene_sets_prepare.R"); source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_score_.R")
+```
+
+Next, we will run the command to annotate the cells. What is nice about ScType is that it is fast and it can annotate the cells with one command, rather than a couple steps like SingleR and celldex.
+
+For the actual command itself, you will need to run it on the joined layers Seurat object that has already been preprocessed (normalization and scaling, which has been done above). You need to specify the assay as RNA, what the known Tissue type is if you are using their provided database, the database you are using (it is a different argument if you are using theirs), and the name of the label the annotations will be stored as.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+db_ <- "ScTypeDB_short.xlsx" # this loads the database you want to use (it is just an excel file i am using with the cell type in one column and the markers in another)
+
+# you will need to source this GitHub link as well since it has the main command
+source("https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/R/sctype_wrapper.R");
+mice.combined_cell <- run_sctype(mice.combined_joined, assay = "RNA", scaled = TRUE, known_tissue_type="Brain",custom_marker_file=db_,name="sctype_classification")
+```
+
+Then you can visualize this with DimPlot() with the group.by() as the name you stored the annotations as.
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+DimPlot(mice.combined_cell, reduction = "tsne", group.by = "sctype_classification")
+  
+```
+
+The only issue I see with using their provided reference database is that it is originally for human gene markers and there are not as many cell types as the celldex package. Although the gene markers for humans and mice are very similar, it is something to consider.
+
+Then, we can do the same steps as we did after running SingleR. 
+
+```{r, echo=TRUE, results="hide", warning=FALSE, message=FALSE}
+# subset based on astrocytes and EAE mice only
+astrocytes_sc <- subset(mice.combined_cell, subset = sctype_classification == "Astrocytes")
+astrocytes_sc <- subset(astrocytes_sc, subset = condition %in% c("EAE priming", "EAE remission", "EAE peak", "naive", "CFA"))
+
+# cluster astrocytes only
+astrocytes_sc <- RunPCA(astrocytes_sc, features = VariableFeatures(object = astrocytes_sc))
+astrocytes_sc <- RunTSNE(astrocytes_sc, reduction = "pca", dims = 1:15)
+astrocytes_sc <- FindNeighbors(astrocytes_sc, reduction = "pca", dims = 1:15)  # use the same number of PCA dimensions
+astrocytes_sc <- FindClusters(astrocytes_sc, resolution = 0.5) # higher resolution to get more clusters
+```
+
+Plot with DimPlot() like before.
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+DimPlot(astrocytes_sc, reduction = "tsne", label = TRUE, repel = TRUE, group.by = "seurat_clusters")
+```
+
+If you want to, you could also view the EAE condition composition within each cluster. I will go through the steps of doing that below. It is a lot of data manipulation to get the counts and proportions per cluster.
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+# simplify the condition labels for easier plotting
+astrocytes_sc$condition_simple <- dplyr::recode(astrocytes_sc$condition,
+                                         "EAE priming" = "Priming",
+                                         "EAE peak" = "Peak",
+                                         "EAE remission" = "Remitting",
+                                         "naive" = "Naive",
+                                         "CFA" = "CFA")
+
+# count total number of cells per condition-cluster 
+cluster_condition_df <- astrocytes_sc@meta.data |> 
+  dplyr::count(seurat_clusters, condition_simple) |> 
+  dplyr::filter(condition_simple != "CFA")  # exclude CFA from calculations
+
+# add a column for percentage out of total cells in the dataset
+cluster_condition_df <- cluster_condition_df %>%
+  mutate(percent = 100 * n / sum(n))
+
+# match the figure for legend and stacking order
+cluster_condition_df$condition_simple <- factor(
+  cluster_condition_df$condition_simple,
+  levels = c("Naive", "Priming", "Peak", "Remitting")
+)
+```
+
+Then you can plot the condition composition per cluster using a stacked bar plot. 
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+ggplot(cluster_condition_df, aes(x = factor(seurat_clusters), y = percent, fill = condition_simple)) +
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(
+    values = c(
+      "Naive" = "grey",
+      "Priming" = "#E69F00",
+      "Peak" = "#56B4E9",
+      "Remitting" = "#CC79A7" # color-blind friendly colors
+    )
+  ) +
+  labs(
+    x = "Cluster",
+    y = "Percent in cluster",
+    fill = NULL
+  ) +
+  theme_classic() +
+  theme(
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.position = "right",
+    legend.text = element_text(size = 12) # this is just a bunch of stylist choices, can alter as needed
+  )
+```
+
+Following this, you can see how gene expression for certain genes (like astrocyte markers) varies across the different conditions using VlnPlot().
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+# first subset the condition to only the ones of interest
+subset_cells <- subset(astrocytes_sc, subset = condition %in% c("CFA", "EAE priming", "EAE remission", "EAE peak"))
+
+# here i am wanting to look at a few different gene markers of astrocyte cells
+VlnPlot(subset_cells, features = c("Gja1", "S100b", "Aqp4"), group.by = "condition")
+```
+
+## Pathway Analysis 
+
+The following steps are a great and easy way to do pathway enrichment analysis if you are not experienced with this, want to do exploratory analysis, or don't have access to paid pathway enrichment analysis (e.g. IPA).
+
+The function listEnrichrDbs() lets you see all of the different enrichment databases available through Enrichr.
+```{r,  echo=TRUE, warning=FALSE, message=FALSE, eval = FALSE}
+listEnrichrDbs() # list dbs to see options/ what is available 
+```
+
+Before conducting differential analysis and pathway enrichment analysis, it's important to see which cluster identities are within your Seurat object. We will need this later for selecting the specific clusters for comparison.
+
+I will be using cluster 2 as it has the highest proportion of peak condition compared to naive condition. This is set with the ident.1 parameter. 
+
+When using DEenrichRPlot(), the following are the arguments important for running the command:
+
+- ident.1 specifies the cluster of interest (e.g., cluster 2).
+
+- ident.2 = NULL implies that the comparison is made against all other clusters.
+
+- balanced = TRUE ensures an equal number of cells are sampled from each group, which is beneficial when dealing with unbalanced datasets.
+
+- logfc.threshold sets the minimum log-fold change for a gene to be considered differentially expressed.
+
+- max.genes limits the number of top genes used for enrichment analysis.
+
+- test.use specifies the statistical test for differential expression, for this I will use MAST
+
+- p.val.cutoff filters genes based on adjusted p-values.
+
+- enrich.database selects the Enrichr database for enrichment.
+
+- num.pathway determines how many top pathways to display in the resulting bar plot.
+
+
+Below runs GO enrichment analysis using GO_Biological_Process_2018, GO_Molecular_Function_2018, and GO_Cellular_Component_2018 databases from Enrichr.
+```{r, echo=TRUE, warning=FALSE, message=FALSE, eval=FALSE}
+unique(Idents(astrocytes_sc)) # few the different idents to choose from
+
+BP_pathway_plot <- DEenrichRPlot(
+  object = astrocytes_sc,
+  ident.1 = 2,
+  ident.2 = NULL,
+  balanced = TRUE,
+  assay = "RNA",
+  logfc.threshold = 0.25,
+  max.genes = 500,
+  test.use = "MAST",
+  p.val.cutoff = 0.05,
+  enrich.database = "GO_Biological_Process_2018",
+  num.pathway = 10
+)
+
+MF_pathway_plot <- DEenrichRPlot(
+  object = astrocytes_sc,
+  ident.1 = 2,
+  ident.2 = NULL,
+  balanced = TRUE,
+  assay = "RNA",
+  logfc.threshold = 0.25,
+  max.genes = 500,
+  test.use = "MAST",
+  p.val.cutoff = 0.05,
+  enrich.database = "GO_Molecular_Function_2018",
+  num.pathway = 10
+)
+
+CC_pathway_plot <- DEenrichRPlot(
+  object = astrocytes_sc,
+  ident.1 = 2,
+  ident.2 = NULL,
+  balanced = TRUE,
+  assay = "RNA",
+  logfc.threshold = 0.25,
+  max.genes = 500,
+  test.use = "MAST",
+  p.val.cutoff = 0.05,
+  enrich.database = "GO_Cellular_Component_2018",
+  num.pathway = 10
+)
+```
+Below, the plots provide information about the biological processes, molecular functions, and cellular components that are significantly associated with the differentially expressed genes in cluster 2.
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+BP_pathway_plot
+```
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+MF_pathway_plot
+```
+
+```{r, echo=TRUE, warning=FALSE, message=TRUE}
+CC_pathway_plot
+```
+
