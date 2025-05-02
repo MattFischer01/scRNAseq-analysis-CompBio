@@ -60,11 +60,11 @@ The -m parameter allows you to specify the path to the sample data containing pa
 
 ## Step 1: Fetch FASTQ Files
 
-If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference. This file needs to be in the main repository directory as well (above the code directory).
+If there are FASTQ files you need to download from NCBI's SRA database, the accession IDs (SRR) must be in a text file (.txt) with each ID on a new line. Please see srr_ids.txt for reference. This file needs to be in the main repository directory as well (above the code directory). 
 
 This step fetches the SRA files using fasterq-dump and then gzips them to save space. The files will be saved in a directory titled scRNA_SRA in the main repository directory. This step may take awhile depending on number of FASTQ files downloaded and size of each file. 
 
-This is to be run prior to the main wrapper if you do not have paired FASTQ files already.
+This is to be run prior to the main wrapper if you do not have paired FASTQ files already. If you want to see how this wrapper works, you can run it with the current SRR IDs inside the text file with the steps below.
 
 ```
 # cd into the code directory
