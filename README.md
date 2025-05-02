@@ -204,3 +204,12 @@ load("seurat_post_int.RData")
 ```
 
 The steps after this will be detailed in the scRNAseq tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/. The tutorial goes through applying PCA, clustering, differential gene expression analysis, cell type annotation, and pathway analysis. 
+
+### Running sample data
+
+Sample data was not provided to run the integration wrapper due to Seurat cell size and feature constraints, but you can run through the tutorial. For running the sample data, the RData file includes the mice.combined object after integration. You should be able to follow most of the steps at the beginning of the Seurat tutorial. Pathway enrichment analysis may not be able to be run since the sample size is so small and you may get errors in this step. 
+
+In your R Session load the sample data:
+```
+load("seurat_small_subset.RData")
+```
