@@ -203,7 +203,7 @@ After running this, you should be able to then load the RData file that is in th
 load("seurat_post_int.RData")
 ```
 
-The steps after this will be detailed in the scRNAseq tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/. The tutorial goes through applying PCA, clustering, differential gene expression analysis, cell type annotation, and pathway analysis. 
+The steps after this will be detailed in the scRNAseq tutorial: https://tjensen15.github.io/scRNAseq-analysis-CompBio/. The tutorial goes through applying PCA, clustering, differential gene expression analysis, cell type annotation, and pathway analysis. The database for ScType cell annotation is included in the main directory of the repository and is titled the same as in the tutorial.
 
 ### Running sample data
 
