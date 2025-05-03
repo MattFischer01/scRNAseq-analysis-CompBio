@@ -198,9 +198,10 @@ The steps after this will be detailed in the scRNAseq tutorial: https://tjensen1
 
 ### Running sample data
 
-Sample data was not provided to run the integration wrapper due to Seurat cell size and feature constraints, but you can run through the tutorial. For running the sample data, the RData file includes the mice.combined object after integration. You should be able to follow most of the steps at the beginning of the Seurat tutorial. Pathway enrichment analysis may not be able to be run since the sample size is so small and you may get errors in this step. 
+Sample data was not provided to run the integration wrapper due to Seurat cell size and feature constraints, but you can run through the tutorial. For running the sample data, the RData file includes the mice.combined object after integration. You should be able to follow most of the steps at the beginning of the Seurat tutorial. Pathway enrichment analysis may not be able to be run since the sample size is so small, and you may get errors in this step. 
 
-In your R Session load the sample data:
+In your R Session, load the sample data:
 ```
 load("seurat_small_subset.RData")
 ```
+**For Dr. Wheeler:** If you want to run the larger (still subsetted) Seurat object, here is the path to the RData file: home/2025/hjensen2/archive/scRNAseq-analysis-CompBio/GEO/test_seurat.RData
